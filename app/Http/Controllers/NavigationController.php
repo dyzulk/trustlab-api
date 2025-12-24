@@ -58,12 +58,9 @@ class NavigationController extends Controller
                 'route' => '/dashboard',
             ],
             [
-                'name' => 'Certificate',
+                'name' => 'Certificates',
                 'icon' => 'certificate',
-                'subItems' => [
-                    ['name' => 'Certificate Management', 'route' => '/dashboard/certificates', 'pro' => false],
-                    ['name' => 'Create Certificate', 'route' => '/dashboard/certificates/create', 'pro' => false],
-                ],
+                'route' => '/dashboard/certificates',
             ],
             [
                 'name' => 'API Keys',
@@ -140,14 +137,7 @@ class NavigationController extends Controller
         // 2. Main Menu
         $mainItems = [
             ['name' => 'Dashboard', 'icon' => 'dashboard', 'route' => '/dashboard'],
-            [
-                'name' => 'Certificate',
-                'icon' => 'certificate',
-                'subItems' => [
-                    ['name' => 'Certificate Management', 'route' => '/dashboard/certificates', 'pro' => false],
-                    ['name' => 'Create Certificate', 'route' => '/dashboard/certificates/create', 'pro' => false],
-                ],
-            ],
+            ['name' => 'Certificates', 'icon' => 'certificate', 'route' => '/dashboard/certificates'],
             ['name' => 'API Keys', 'icon' => 'api-key', 'route' => '/dashboard/api-keys'],
             ['name' => 'Support Tickets', 'icon' => 'support-ticket', 'route' => '/dashboard/support'],
         ];
