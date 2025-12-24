@@ -18,7 +18,7 @@ class DatabaseSeeder extends Seeder
             ['email' => 'admin@trustlab.com', 'first_name' => 'Admin', 'last_name' => 'User'],
             ['email' => 'admin@example.com', 'first_name' => 'Admin', 'last_name' => 'Example'],
             ['email' => 'admin@gmail.com', 'first_name' => 'Admin', 'last_name' => 'Gmail'],
-            ['email' => 'info@gmail.com', 'first_name' => 'Admin', 'last_name' => 'Info'],
+            ['email' => 'melon@buah.der.my.id', 'first_name' => 'Buah', 'last_name' => 'Melon'],
             ['email' => 'santulitam2024@gmail.com', 'first_name' => 'Santu', 'last_name' => 'Lita Tam'],
         ];
 
@@ -28,7 +28,7 @@ class DatabaseSeeder extends Seeder
             ], [
                 'first_name' => $admin['first_name'],
                 'last_name' => $admin['last_name'],
-                'password' => bcrypt('password'),
+                'password' => bcrypt('#PersibBandung1933'),
                 'role' => 'admin',
                 'email_verified_at' => now(),
             ]);

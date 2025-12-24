@@ -19,8 +19,8 @@ return new class extends Migration
             $table->string('serial_number')->nullable();
             $table->string('common_name')->nullable();
             $table->string('organization')->nullable();
-            $table->timestamp('valid_from')->nullable();
-            $table->timestamp('valid_to')->nullable();
+            $table->dateTime('valid_from')->nullable();
+            $table->dateTime('valid_to')->nullable();
             $table->timestamps();
         });
     }
