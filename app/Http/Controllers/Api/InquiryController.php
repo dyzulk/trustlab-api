@@ -33,9 +33,14 @@ class InquiryController extends Controller
 
         $inquiry = Inquiry::create($request->all());
 
-        // Notify all admins
-        $admins = User::where('role', 'admin')->get();
-        Notification::send($admins, new NewInquiryNotification($inquiry));
+        try {
+            // Notify all admins
+            $admins = User::where('role', 'admin')->get();
+            Notification::send($admins, new NewInquiryNotification($inquiry));
+        } catch (\Exception $e) {
+            // Log the error but fail silently to the user, as the inquiry was saved.
+            \Illuminate\Support\Facades\Log::error('Failed to send NewInquiryNotification: ' . $e->getMessage());
+        }
 
         return response()->json([
             'message' => 'Your message has been sent successfully. We will get back to you soon!',
