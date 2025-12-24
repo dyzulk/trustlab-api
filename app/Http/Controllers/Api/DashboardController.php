@@ -38,8 +38,8 @@ class DashboardController extends Controller
         $expiredCertificates = Certificate::where('valid_to', '<', now())->count();
         
         // Tickets
-        $activeTickets = Ticket::whereIn('status', ['OPEN', 'IN_PROGRESS'])->count();
-        $prevActiveTickets = Ticket::whereIn('status', ['OPEN', 'IN_PROGRESS'])->where('created_at', '<', $currentMonth)->count();
+        $activeTickets = Ticket::whereIn('status', ['open', 'answered'])->count();
+        $prevActiveTickets = Ticket::whereIn('status', ['open', 'answered'])->where('created_at', '<', $currentMonth)->count();
 
         $stats = [
             'total_certificates' => [

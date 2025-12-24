@@ -20,13 +20,14 @@ return new class extends Migration
             $table->string('state')->nullable();
             $table->string('country', 2)->nullable();
             $table->text('san')->nullable();
+            $table->string('status')->default('ISSUED')->index();
             $table->integer('key_bits')->default(2048);
             $table->string('serial_number')->nullable();
             $table->longText('cert_content')->nullable();
             $table->longText('key_content')->nullable();
             $table->longText('csr_content')->nullable();
-            $table->timestamp('valid_from')->nullable();
-            $table->timestamp('valid_to')->nullable();
+            $table->dateTime('valid_from')->nullable();
+            $table->dateTime('valid_to')->nullable();
             $table->timestamp('expired_notification_sent_at')->nullable();
             $table->timestamps();
         });
