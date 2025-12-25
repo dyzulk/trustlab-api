@@ -15,11 +15,9 @@ class CheckApiKey
      *
      * @param  \Closure(\Illuminate\Http\Request): (\Symfony\Component\HttpFoundation\Response)  $next
      */
-    public function handle(Request $request, Closure $next): Response
-    {
-        \Illuminate\Support\Facades\Log::info('Headers received:', $request->headers->all());
         // Check for underscore (preference) OR dash (server-safe)
-        $keyString = $request->header('TRUSTLAB_API_KEY') ?? $request->header('TRUSTLAB-API-KEY');
+        $headerValue = $request->header('TRUSTLAB_API_KEY') ?? $request->header('TRUSTLAB-API-KEY');
+        $keyString = $headerValue ? trim($headerValue) : null;
 
         if (!$keyString) {
             return response()->json([
