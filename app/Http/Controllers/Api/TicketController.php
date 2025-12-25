@@ -92,7 +92,7 @@ class TicketController extends Controller
                 try {
                     $admins = User::where('role', 'admin')->get();
                     Notification::send($admins, new NewTicketNotification($ticket->load('user')));
-                } catch (\Exception $e) {
+                } catch (\Throwable $e) {
                     // Log error but don't fail the request
                     \Illuminate\Support\Facades\Log::error('Failed to send ticket notification: ' . $e->getMessage());
                 }
@@ -102,7 +102,7 @@ class TicketController extends Controller
                     'ticket' => $ticket->load('replies')
                 ], 201);
             });
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             \Illuminate\Support\Facades\Log::error('Ticket creation failed: ' . $e->getMessage());
             return response()->json(['message' => 'Failed to create ticket: ' . $e->getMessage()], 500);
         }
@@ -182,7 +182,7 @@ class TicketController extends Controller
                 $admins = User::where('role', 'admin')->get();
                 Notification::send($admins, new TicketReplyNotification($ticket, $reply, false));
             }
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
              \Illuminate\Support\Facades\Log::error('Failed to send ticket reply notification: ' . $e->getMessage());
         }
 
