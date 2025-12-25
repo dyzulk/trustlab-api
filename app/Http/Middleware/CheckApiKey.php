@@ -17,6 +17,7 @@ class CheckApiKey
      */
     public function handle(Request $request, Closure $next): Response
     {
+        \Illuminate\Support\Facades\Log::info('Headers received:', $request->headers->all());
         $keyString = $request->header('TRUSTLAB_API_KEY');
 
         if (!$keyString) {
