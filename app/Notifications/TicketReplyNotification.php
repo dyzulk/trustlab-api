@@ -2,10 +2,10 @@
 
 namespace App\Notifications;
 
-use Illuminate\Bus\Queueable;
-use Illuminate\Notifications\Notification;
+use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
+use Illuminate\Notifications\Messages\BroadcastMessage;
 
-class TicketReplyNotification extends Notification
+class TicketReplyNotification extends Notification implements ShouldBroadcast
 {
     use Queueable;
 
@@ -30,7 +30,7 @@ class TicketReplyNotification extends Notification
      */
     public function via(object $notifiable): array
     {
-        return ['database'];
+        return ['database', 'broadcast'];
     }
 
     /**
@@ -50,8 +50,24 @@ class TicketReplyNotification extends Notification
             'type' => 'ticket_reply',
             'icon' => 'support-ticket',
             'url' => $this->byAdmin 
-                ? '/dashboard/support/' . $this->ticket->id
-                : '/dashboard/admin/tickets/' . $this->ticket->id,
+                ? '/dashboard/support/view?id=' . $this->ticket->id
+                : '/dashboard/admin/tickets/view?id=' . $this->ticket->id,
         ];
+    }
+
+    /**
+     * Get the broadcastable representation of the notification.
+     */
+    public function toBroadcast(object $notifiable): BroadcastMessage
+    {
+        return new BroadcastMessage([
+            'message' => $this->byAdmin 
+                ? 'Support replied to your ticket: ' . $this->ticket->subject
+                : 'Customer replied to ticket: ' . $this->ticket->ticket_number,
+            'url' => $this->byAdmin 
+                ? '/dashboard/support/view?id=' . $this->ticket->id
+                : '/dashboard/admin/tickets/view?id=' . $this->ticket->id,
+            'type' => 'ticket_reply',
+        ]);
     }
 }

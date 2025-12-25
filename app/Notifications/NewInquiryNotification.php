@@ -3,12 +3,10 @@
 namespace App\Notifications;
 
 use App\Models\Inquiry;
-use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Notifications\Messages\MailMessage;
-use Illuminate\Notifications\Notification;
+use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
+use Illuminate\Notifications\Messages\BroadcastMessage;
 
-class NewInquiryNotification extends Notification
+class NewInquiryNotification extends Notification implements ShouldBroadcast
 {
     use Queueable;
 
@@ -29,7 +27,7 @@ class NewInquiryNotification extends Notification
      */
     public function via(object $notifiable): array
     {
-        return ['database'];
+        return ['database', 'broadcast'];
     }
 
     /**
@@ -47,7 +45,19 @@ class NewInquiryNotification extends Notification
             'message' => 'New inquiry from ' . $this->inquiry->name . ': ' . $this->inquiry->subject,
             'type' => 'inquiry',
             'icon' => 'inbox',
-            'url' => '/dashboard/admin/inquiries',
+            'url' => '/dashboard/admin/inquiries', // Consistent URL style
         ];
+    }
+
+    /**
+     * Get the broadcastable representation of the notification.
+     */
+    public function toBroadcast(object $notifiable): BroadcastMessage
+    {
+        return new BroadcastMessage([
+            'message' => 'New inquiry from ' . $this->inquiry->name,
+            'url' => '/dashboard/admin/inquiries',
+            'type' => 'inquiry',
+        ]);
     }
 }

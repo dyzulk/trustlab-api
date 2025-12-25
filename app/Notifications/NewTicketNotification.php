@@ -2,10 +2,10 @@
 
 namespace App\Notifications;
 
-use Illuminate\Bus\Queueable;
-use Illuminate\Notifications\Notification;
+use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
+use Illuminate\Notifications\Messages\BroadcastMessage;
 
-class NewTicketNotification extends Notification
+class NewTicketNotification extends Notification implements ShouldBroadcast
 {
     use Queueable;
 
@@ -26,7 +26,7 @@ class NewTicketNotification extends Notification
      */
     public function via(object $notifiable): array
     {
-        return ['database'];
+        return ['database', 'broadcast'];
     }
 
     /**
@@ -45,5 +45,17 @@ class NewTicketNotification extends Notification
             'icon' => 'support-ticket',
             'url' => '/dashboard/admin/tickets/' . $this->ticket->id,
         ];
+    }
+
+    /**
+     * Get the broadcastable representation of the notification.
+     */
+    public function toBroadcast(object $notifiable): BroadcastMessage
+    {
+        return new BroadcastMessage([
+            'message' => 'New support ticket received from ' . $this->ticket->user->name,
+            'url' => '/dashboard/admin/tickets/' . $this->ticket->id,
+            'type' => 'ticket', // specific type for frontend handling
+        ]);
     }
 }
