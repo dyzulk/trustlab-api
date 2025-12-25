@@ -4,6 +4,7 @@ namespace App\Notifications;
 
 use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
 use Illuminate\Notifications\Messages\BroadcastMessage;
+use Illuminate\Notifications\Notification;
 
 class TicketReplyNotification extends Notification implements ShouldBroadcast
 {

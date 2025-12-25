@@ -5,6 +5,7 @@ namespace App\Notifications;
 use App\Models\Inquiry;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
 use Illuminate\Notifications\Messages\BroadcastMessage;
+use Illuminate\Notifications\Notification;
 
 class NewInquiryNotification extends Notification implements ShouldBroadcast
 {
