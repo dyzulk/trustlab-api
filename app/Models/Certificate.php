@@ -53,4 +53,30 @@ class Certificate extends Model
         }
         return 'ACTIVE';
     }
+
+    public function toArray()
+    {
+        $array = parent::toArray();
+        $ordered = [];
+        
+        // Define the preferred order of keys
+        $paramOrder = [
+            'uuid', 'user_id', 'common_name', 'organization', 'locality', 
+            'state', 'country', 'san', 'status', 'key_bits', 'serial_number',
+            'ssl_status', // <--- Inserted here (before content)
+            'cert_content', 'key_content', 'csr_content',
+            'valid_from', 'valid_to', 'created_at', 'updated_at'
+        ];
+
+        // Reconstruct query based on paramOrder
+        foreach ($paramOrder as $key) {
+            if (array_key_exists($key, $array)) {
+                $ordered[$key] = $array[$key];
+                unset($array[$key]);
+            }
+        }
+
+        // Append any remaining keys (that weren't in our explicit list)
+        return array_merge($ordered, $array);
+    }
 }
