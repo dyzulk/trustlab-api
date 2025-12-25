@@ -15,6 +15,8 @@ class CheckApiKey
      *
      * @param  \Closure(\Illuminate\Http\Request): (\Symfony\Component\HttpFoundation\Response)  $next
      */
+    public function handle(Request $request, Closure $next): Response
+    {
         // Check for underscore (preference) OR dash (server-safe)
         $headerValue = $request->header('TRUSTLAB_API_KEY') ?? $request->header('TRUSTLAB-API-KEY');
         $keyString = $headerValue ? trim($headerValue) : null;
