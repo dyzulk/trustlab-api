@@ -107,8 +107,10 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::delete('/admin/legal-pages/{legalPage}', [\App\Http\Controllers\Api\Admin\LegalPageController::class, 'destroy']);
     });
 
-    // Authenticated API Routes (v1) - Using API Key
-    Route::middleware([\App\Http\Middleware\CheckApiKey::class])->prefix('v1')->group(function () {
-        Route::get('/certificates', [CertificateApiController::class, 'index']);
-    });
+
+});
+
+// Authenticated API Routes (v1) - Using API Key
+Route::middleware([\App\Http\Middleware\CheckApiKey::class])->prefix('v1')->group(function () {
+    Route::get('/certificates', [CertificateApiController::class, 'index']);
 });

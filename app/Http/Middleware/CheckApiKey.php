@@ -6,6 +6,7 @@ use Closure;
 use App\Models\ApiKey;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Illuminate\Support\Facades\Auth;
 
 class CheckApiKey
 {
@@ -16,12 +17,14 @@ class CheckApiKey
      */
     public function handle(Request $request, Closure $next): Response
     {
-        $keyString = $request->header('TRUSTLAB_API_KEY');
+        $keyString = $request->header('TRUSTLAB_API_KEY') 
+                  ?? $request->header('X-API-KEY') 
+                  ?? $request->header('X_API_KEY');
 
         if (!$keyString) {
             return response()->json([
                 'success' => false,
-                'message' => 'API Key is missing. Please provide it in the TRUSTLAB_API_KEY header.'
+                'message' => 'API Key is missing. Please provide it in the X-API-KEY or TRUSTLAB_API_KEY header.'
             ], 401);
         }
 
@@ -41,7 +44,13 @@ class CheckApiKey
         // \App\Events\DashboardStatsUpdated::dispatch($apiKey->user_id);
 
         // Put the user in the request context
-        $request->merge(['authenticated_user' => $apiKey->user]);
+        $user = $apiKey->user;
+        $request->merge(['authenticated_user' => $user]);
+        $request->setUserResolver(fn () => $user);
+        
+        if ($user) {
+            Auth::setUser($user);
+        }
         
         return $next($request);
     }
