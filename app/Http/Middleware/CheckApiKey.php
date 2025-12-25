@@ -18,12 +18,13 @@ class CheckApiKey
     public function handle(Request $request, Closure $next): Response
     {
         \Illuminate\Support\Facades\Log::info('Headers received:', $request->headers->all());
-        $keyString = $request->header('TRUSTLAB_API_KEY');
+        // Check for underscore (preference) OR dash (server-safe)
+        $keyString = $request->header('TRUSTLAB_API_KEY') ?? $request->header('TRUSTLAB-API-KEY');
 
         if (!$keyString) {
             return response()->json([
                 'success' => false,
-                'message' => 'API Key is missing. Please provide it in the TRUSTLAB_API_KEY header.'
+                'message' => 'API Key is missing. Please provide it in the TRUSTLAB-API-KEY header.'
             ], 401);
         }
 
