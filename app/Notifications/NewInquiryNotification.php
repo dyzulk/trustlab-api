@@ -39,6 +39,14 @@ class NewInquiryNotification extends Notification implements ShouldBroadcast
      */
     public function toArray(object $notifiable): array
     {
+        return $this->toDatabase($notifiable);
+    }
+
+    /**
+     * Get the database representation of the notification.
+     */
+    public function toDatabase(object $notifiable): array
+    {
         return [
             'inquiry_id' => $this->inquiry->id,
             'name' => $this->inquiry->name,
@@ -47,7 +55,7 @@ class NewInquiryNotification extends Notification implements ShouldBroadcast
             'message' => 'New inquiry from ' . $this->inquiry->name . ': ' . $this->inquiry->subject,
             'type' => 'inquiry',
             'icon' => 'inbox',
-            'url' => '/dashboard/admin/inquiries', // Consistent URL style
+            'url' => '/dashboard/admin/inquiries',
         ];
     }
 

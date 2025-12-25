@@ -42,6 +42,14 @@ class TicketReplyNotification extends Notification implements ShouldBroadcast
      */
     public function toArray(object $notifiable): array
     {
+        return $this->toDatabase($notifiable);
+    }
+
+    /**
+     * Get the database representation of the notification.
+     */
+    public function toDatabase(object $notifiable): array
+    {
         return [
             'ticket_id' => $this->ticket->id,
             'reply_id' => $this->reply->id,
