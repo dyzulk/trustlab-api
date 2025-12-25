@@ -24,6 +24,14 @@ class Certificate extends Model
         'expired_notification_sent_at' => 'datetime',
     ];
 
+    protected $hidden = [
+        'expired_notification_sent_at',
+    ];
+
+    protected $appends = [
+        'ssl_status',
+    ];
+
     protected static function booted()
     {
         static::creating(function ($model) {
@@ -36,5 +44,13 @@ class Certificate extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function getSslStatusAttribute()
+    {
+        if ($this->valid_to && $this->valid_to->isPast()) {
+            return 'EXPIRED';
+        }
+        return 'ACTIVE';
     }
 }
