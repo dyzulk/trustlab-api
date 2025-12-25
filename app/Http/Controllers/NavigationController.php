@@ -81,8 +81,8 @@ class NavigationController extends Controller
              // Let's keep "My Services" as it's a nice dedicated page for them, inserting it after Dashboard.
              array_splice($mainItems, 1, 0, [[
                 'name' => 'My Services',
-                'icon' => 'layers', // Helper doesn't have layers, but frontend mapping needs to handle it or we map 'layers' to something
-                'route' => '/services',
+                'icon' => 'layers', 
+                'route' => '/dashboard/services',
              ]]);
         }
 
