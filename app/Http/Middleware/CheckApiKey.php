@@ -17,14 +17,12 @@ class CheckApiKey
      */
     public function handle(Request $request, Closure $next): Response
     {
-        $keyString = $request->header('TRUSTLAB_API_KEY') 
-                  ?? $request->header('X-API-KEY') 
-                  ?? $request->header('X_API_KEY');
+        $keyString = $request->header('TRUSTLAB_API_KEY');
 
         if (!$keyString) {
             return response()->json([
                 'success' => false,
-                'message' => 'API Key is missing. Please provide it in the X-API-KEY or TRUSTLAB_API_KEY header.'
+                'message' => 'API Key is missing. Please provide it in the TRUSTLAB_API_KEY header.'
             ], 401);
         }
 
