@@ -81,7 +81,7 @@ class DashboardController extends Controller
                 // No trend for now, frontend will handle this with 'footer' or similar if needed
             ];
             
-            $stats['recent_users'] = User::latest()->take(5)->get(['id', 'name', 'email', 'created_at']);
+            $stats['recent_users'] = User::latest()->take(5)->get(['id', 'first_name', 'last_name', 'email', 'created_at']);
         }
 
         // Recent Activity (Mocked for now or from logs if available)
