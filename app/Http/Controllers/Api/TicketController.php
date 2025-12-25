@@ -89,8 +89,13 @@ class TicketController extends Controller
                 }
 
                 // Notify Admins
-                $admins = User::where('role', 'admin')->get();
-                Notification::send($admins, new NewTicketNotification($ticket->load('user')));
+                try {
+                    $admins = User::where('role', 'admin')->get();
+                    Notification::send($admins, new NewTicketNotification($ticket->load('user')));
+                } catch (\Exception $e) {
+                    // Log error but don't fail the request
+                    \Illuminate\Support\Facades\Log::error('Failed to send ticket notification: ' . $e->getMessage());
+                }
 
                 return response()->json([
                     'message' => 'Ticket created successfully',
@@ -98,7 +103,8 @@ class TicketController extends Controller
                 ], 201);
             });
         } catch (\Exception $e) {
-            return response()->json(['message' => 'Failed to create ticket', 'error' => $e->getMessage()], 500);
+            \Illuminate\Support\Facades\Log::error('Ticket creation failed: ' . $e->getMessage());
+            return response()->json(['message' => 'Failed to create ticket: ' . $e->getMessage()], 500);
         }
     }
 
@@ -163,17 +169,21 @@ class TicketController extends Controller
             }
         }
 
-        // Update ticket status
-        if ($user->isAdmin()) {
-            $ticket->update(['status' => 'answered']);
-            // Notify Customer
-            $ticketUser = $ticket->user;
-            $ticketUser->notify(new TicketReplyNotification($ticket, $reply, true));
-        } else {
-            $ticket->update(['status' => 'open']);
-            // Notify Admins
-            $admins = User::where('role', 'admin')->get();
-            Notification::send($admins, new TicketReplyNotification($ticket, $reply, false));
+        // Update ticket status & Notify
+        try {
+            if ($user->isAdmin()) {
+                $ticket->update(['status' => 'answered']);
+                // Notify Customer
+                $ticketUser = $ticket->user;
+                $ticketUser->notify(new TicketReplyNotification($ticket, $reply, true));
+            } else {
+                $ticket->update(['status' => 'open']);
+                // Notify Admins
+                $admins = User::where('role', 'admin')->get();
+                Notification::send($admins, new TicketReplyNotification($ticket, $reply, false));
+            }
+        } catch (\Exception $e) {
+             \Illuminate\Support\Facades\Log::error('Failed to send ticket reply notification: ' . $e->getMessage());
         }
 
         return response()->json([
