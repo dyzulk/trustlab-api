@@ -45,6 +45,9 @@ class ProfileController extends Controller
         if (isset($validated['linkedin'])) $validated['linkedin'] = $this->extractUsername($validated['linkedin'], 'linkedin.com/in');
         if (isset($validated['instagram'])) $validated['instagram'] = $this->extractUsername($validated['instagram'], 'instagram.com');
 
+        // Log the update attempt for debugging
+        \Illuminate\Support\Facades\Log::info('Profile Update Request:', ['user_id' => $user->id, 'payload' => $validated]);
+
         $user->update($validated);
 
         return response()->json([
