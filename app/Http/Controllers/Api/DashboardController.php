@@ -26,20 +26,30 @@ class DashboardController extends Controller
         $currentMonth = now()->startOfMonth();
         $previousMonth = now()->subMonth()->startOfMonth();
         
-        // Certificates
-        $totalCertificates = Certificate::count();
-        $prevCertificates = Certificate::where('created_at', '<', $currentMonth)->count(); // Simplified for total growth
+        // Certificates (Scoped to User)
+        $totalCertificates = Certificate::where('user_id', $user->id)->count();
+        $prevCertificates = Certificate::where('user_id', $user->id)->where('created_at', '<', $currentMonth)->count();
         
-        // Active Certificates
-        $activeCertificates = Certificate::where('status', 'ISSUED')->where('valid_to', '>', now())->count();
-        $prevActiveCertificates = Certificate::where('status', 'ISSUED')->where('valid_to', '>', now()->subMonth())->where('created_at', '<', $currentMonth)->count();
+        // Active Certificates (Scoped to User)
+        $activeCertificates = Certificate::where('user_id', $user->id)->where('status', 'ISSUED')->where('valid_to', '>', now())->count();
+        $prevActiveCertificates = Certificate::where('user_id', $user->id)->where('status', 'ISSUED')->where('valid_to', '>', now()->subMonth())->where('created_at', '<', $currentMonth)->count();
 
-        // Expired
-        $expiredCertificates = Certificate::where('valid_to', '<', now())->count();
+        // Expired (Scoped to User)
+        $expiredCertificates = Certificate::where('user_id', $user->id)->where('valid_to', '<', now())->count();
         
-        // Tickets
-        $activeTickets = Ticket::whereIn('status', ['open', 'answered'])->count();
-        $prevActiveTickets = Ticket::whereIn('status', ['open', 'answered'])->where('created_at', '<', $currentMonth)->count();
+        // Tickets (Role Based)
+        $ticketQuery = Ticket::query()->whereIn('status', ['open', 'answered']);
+        if (!$user->isAdmin()) {
+            $ticketQuery->where('user_id', $user->id);
+        }
+        $activeTickets = $ticketQuery->count();
+
+        // Previous Tickets (Role Based)
+        $prevTicketQuery = Ticket::query()->whereIn('status', ['open', 'answered'])->where('created_at', '<', $currentMonth);
+         if (!$user->isAdmin()) {
+            $prevTicketQuery->where('user_id', $user->id);
+        }
+        $prevActiveTickets = $prevTicketQuery->count();
 
         $stats = [
             'total_certificates' => [
@@ -54,7 +64,7 @@ class DashboardController extends Controller
             ],
             'expired_certificates' => [
                 'value' => $expiredCertificates,
-                'trend' => 0, // Hard to calculate meaningful trend for expired without accumulation history
+                'trend' => 0, 
                 'trend_label' => 'vs last month'
             ],
             'active_tickets' => [
