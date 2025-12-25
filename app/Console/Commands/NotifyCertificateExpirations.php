@@ -40,19 +40,21 @@ class NotifyCertificateExpirations extends Command
             $daysRemaining = $now->diffInDays($certificate->valid_to, false);
             $daysRemaining = (int) ceil($daysRemaining); // Ensure integer
 
-            // Critical Email Alert (< 7 days)
-            if ($daysRemaining < 7) {
-                // Check if we already sent an email today (simple logic: one email per day near expiration)
-                // For a robust system, we would log this in a separate notifications table.
-                // Here we assume the scheduler runs once daily.
-                if ($user->email && $user->settings_certificate_renewal) {
-                     \Illuminate\Support\Facades\Mail::to($user->email)->send(new \App\Mail\CertificateExpiringMail($certificate, $daysRemaining));
-                     $this->info("Sent expiration email to {$user->email} for certificate {$certificate->common_name} (Expires in {$daysRemaining} days)");
-                }
+            // Check if we already sent a notification TODAY for this certificate to avoid spamming
+            $alreadyNotifiedToday = $user->notifications()
+                ->where('type', 'App\Notifications\CertificateExpiringNotification')
+                ->where('data->certificate_id', $certificate->id)
+                ->where('created_at', '>=', $now->copy()->startOfDay())
+                ->exists();
+
+            if ($alreadyNotifiedToday) {
+                continue;
             }
 
-            // In-App Notification (Database Notification) logic would go here if we had the notifications table set up.
-            // For now, we focus on the email part as requested for the automation.
+            // Send Notification (Handles both Database/Bell and Mail channels based on days remaining)
+            $user->notify(new \App\Notifications\CertificateExpiringNotification($certificate, $daysRemaining));
+
+            $this->info("Sent notification to {$user->email} for certificate {$certificate->common_name} (Expires in {$daysRemaining} days)");
         }
 
         // 2. Check for ALREADY EXPIRED certificates that haven't been notified of expiration yet
