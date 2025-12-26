@@ -16,6 +16,9 @@ use App\Http\Controllers\Api\DashboardController;
 
 // Public API Routes
 Route::get('/public/ca-certificates', [PublicCaController::class, 'index']);
+Route::get('/public/ca-certificates/{serial}/download', [PublicCaController::class, 'download']);
+Route::get('/public/ca-certificates/{serial}/download/windows', [PublicCaController::class, 'downloadWindows']);
+Route::get('/public/ca-certificates/{serial}/download/mac', [PublicCaController::class, 'downloadMac']);
 Route::post('/public/inquiries', [\App\Http\Controllers\Api\InquiryController::class, 'store']);
 Route::get('/public/legal-pages', [\App\Http\Controllers\Api\LegalPageController::class, 'index']);
 Route::get('/public/legal-pages/{slug}', [\App\Http\Controllers\Api\LegalPageController::class, 'show']);
