@@ -173,12 +173,9 @@ return [
     })(),
 
     'same_site' => (function() {
-        // If the request comes from a different TLD (like .pages.dev), 
-        // we must use SameSite=None and Secure=true for the browser to send the cookie.
-        if (isset($_SERVER['HTTP_ORIGIN']) && str_ends_with($_SERVER['HTTP_ORIGIN'], '.trustlab.pages.dev')) {
-            return 'none';
-        }
-        return env('SESSION_SAME_SITE', 'lax');
+        // Force 'none' for any cross-domain requests on production/staging
+        // This is safe because we use 'secure' => true below.
+        return 'none';
     })(),
 
     /*
