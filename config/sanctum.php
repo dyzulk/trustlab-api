@@ -15,12 +15,16 @@ return [
     |
     */
 
-    'stateful' => explode(',', env('SANCTUM_STATEFUL_DOMAINS', sprintf(
-        '%s%s',
-        'localhost,localhost:3000,127.0.0.1,127.0.0.1:8000,::1,trustlab.dyzulk.com',
-        Sanctum::currentApplicationUrlWithPort(),
-        // Sanctum::currentRequestHost(),
-    ))),
+    'stateful' => array_merge(
+        explode(',', env('SANCTUM_STATEFUL_DOMAINS', sprintf(
+            '%s%s',
+            'localhost,localhost:3000,127.0.0.1,127.0.0.1:8000,::1,trustlab.dyzulk.com',
+            Sanctum::currentApplicationUrlWithPort(),
+        ))),
+        (isset($_SERVER['HTTP_HOST']) && str_ends_with($_SERVER['HTTP_HOST'], '.trustlab.pages.dev')) 
+            ? [$_SERVER['HTTP_HOST']] 
+            : []
+    ),
 
     /*
     |--------------------------------------------------------------------------
