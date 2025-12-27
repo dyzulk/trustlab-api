@@ -156,7 +156,23 @@ return [
     |
     */
 
-    'domain' => env('SESSION_DOMAIN'),
+    'domain' => (function() {
+        if (!isset($_SERVER['HTTP_HOST'])) {
+            return env('SESSION_DOMAIN');
+        }
+
+        $host = $_SERVER['HTTP_HOST'];
+
+        if (str_ends_with($host, '.trustlab.pages.dev')) {
+            return '.trustlab.pages.dev';
+        }
+
+        if (str_ends_with($host, '.dyzulk.com')) {
+            return '.dyzulk.com';
+        }
+
+        return env('SESSION_DOMAIN');
+    })(),
 
     /*
     |--------------------------------------------------------------------------
