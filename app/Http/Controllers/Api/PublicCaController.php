@@ -40,6 +40,8 @@ class PublicCaController extends Controller
     public function download(Request $request, $serial)
     {
         $cert = CaCertificate::where('serial_number', $serial)->firstOrFail();
+        $cert->increment('download_count');
+        $cert->update(['last_downloaded_at' => now()]);
         $format = $request->query('format', 'pem');
         
         if ($format === 'der') {
@@ -71,6 +73,8 @@ class PublicCaController extends Controller
     public function downloadWindows($serial)
     {
         $cert = CaCertificate::where('serial_number', $serial)->firstOrFail();
+        $cert->increment('download_count');
+        $cert->update(['last_downloaded_at' => now()]);
         $store = $cert->ca_type === 'root' ? 'Root' : 'CA';
         $filename = preg_replace('/[^a-zA-Z0-9_-]/', '_', $cert->common_name);
         
@@ -101,6 +105,8 @@ class PublicCaController extends Controller
     public function downloadMac($serial)
     {
         $cert = CaCertificate::where('serial_number', $serial)->firstOrFail();
+        $cert->increment('download_count');
+        $cert->update(['last_downloaded_at' => now()]);
         
         // Extract Base64 payload
         $pem = $cert->cert_content;

@@ -11,9 +11,12 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Str;
+use App\Traits\LogsActivity;
 
 class CertificateApiController extends Controller
 {
+    use LogsActivity;
+
     protected $sslService;
 
     public function __construct(OpenSslService $sslService)
@@ -97,6 +100,8 @@ class CertificateApiController extends Controller
                 'valid_to' => $result['valid_to'],
             ]);
 
+            $this->logActivity('issue_cert', "Issued certificate for {$certificate->common_name}");
+
             return response()->json([
                 'status' => 'success',
                 'message' => 'Certificate generated successfully',
@@ -129,7 +134,10 @@ class CertificateApiController extends Controller
     public function destroy(Certificate $certificate)
     {
         $this->authorizeOwner($certificate);
+        $commonName = $certificate->common_name;
         $certificate->delete();
+
+        $this->logActivity('delete_cert', "Deleted certificate for {$commonName}");
 
         return response()->json([
             'status' => 'success',

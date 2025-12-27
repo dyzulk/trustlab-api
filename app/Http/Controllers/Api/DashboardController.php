@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Models\Certificate;
 use App\Models\Ticket;
 use App\Models\Inquiry;
+use App\Models\ActivityLog;
 use Illuminate\Support\Facades\DB;
 
 class DashboardController extends Controller
@@ -88,21 +89,62 @@ class DashboardController extends Controller
             // Inquiries - trend calculation for "Pending" is hard, so we just wrap value to keep consistent structure
             $stats['pending_inquiries'] = [
                 'value' => Inquiry::where('status', 'unread')->count(),
-                // No trend for now, frontend will handle this with 'footer' or similar if needed
             ];
+
+            // CA Certificate Downloads
+            $caDownloads = \App\Models\CaCertificate::select('ca_type', 'download_count')->get();
+            foreach ($caDownloads as $ca) {
+                $stats['ca_downloads_' . $ca->ca_type] = [
+                    'value' => $ca->download_count ?? 0,
+                    'label' => str_replace('_', ' ', strtoupper($ca->ca_type)) . ' Downloads'
+                ];
+            }
             
             $stats['recent_users'] = User::latest()->take(5)->get(['id', 'first_name', 'last_name', 'email', 'created_at']);
         }
 
-        // Recent Activity (Mocked for now or from logs if available)
-        // Ideally checking `authentication_log` if available or similar
-        $recentActivity = [];
+        // Recent Activity
+        $activityLogQuery = ActivityLog::with('user:id,first_name,last_name,email,avatar')
+            ->latest()
+            ->take(10);
+            
+        if (!$user->isAdmin()) {
+            $activityLogQuery->where('user_id', $user->id);
+        }
+        
+        $recentActivity = $activityLogQuery->get()->map(function($log) {
+            return [
+                'id' => $log->id,
+                'user_name' => $log->user ? $log->user->first_name . ' ' . $log->user->last_name : 'System',
+                'user_avatar' => $log->user ? $log->user->avatar : null,
+                'action' => $log->action,
+                'description' => $log->description,
+                'created_at' => $log->created_at->toIso8601String(),
+            ];
+        });
+
+        // Chart Data (Certificate Issuance Trend - Last 7 Days)
+        $chartData = [];
+        for ($i = 6; $i >= 0; $i--) {
+            $date = now()->subDays($i)->format('Y-m-d');
+            $countQuery = Certificate::whereDate('created_at', $date);
+            if (!$user->isAdmin()) {
+                $countQuery->where('user_id', $user->id);
+            }
+            
+            $chartData[] = [
+                'date' => $date,
+                'day' => now()->subDays($i)->format('D'),
+                'count' => $countQuery->count()
+            ];
+        }
         
         return response()->json([
             'status' => 'success',
             'data' => [
                 'stats' => $stats,
                 'recent_activity' => $recentActivity,
+                'chart_data' => $chartData,
                 'server_time' => now()->toIso8601String(),
             ]
         ]);

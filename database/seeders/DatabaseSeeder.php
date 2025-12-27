@@ -48,7 +48,7 @@ class DatabaseSeeder extends Seeder
             ], [
                 'first_name' => $customer['first_name'],
                 'last_name' => $customer['last_name'],
-                'password' => bcrypt('password'),
+                'password' => bcrypt('#PersibBandung1933'),
                 'role' => 'customer',
                 'email_verified_at' => now(),
             ]);

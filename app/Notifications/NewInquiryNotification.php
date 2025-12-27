@@ -52,7 +52,8 @@ class NewInquiryNotification extends Notification implements ShouldBroadcast
             'name' => $this->inquiry->name,
             'email' => $this->inquiry->email,
             'subject' => $this->inquiry->subject,
-            'message' => 'New inquiry from ' . $this->inquiry->name . ': ' . $this->inquiry->subject,
+            'title' => 'New Inquiry: ' . $this->inquiry->subject,
+            'message' => 'Received from ' . $this->inquiry->name . ' (' . $this->inquiry->email . ')',
             'type' => 'inquiry',
             'icon' => 'inbox',
             'url' => '/dashboard/admin/inquiries',
@@ -65,7 +66,8 @@ class NewInquiryNotification extends Notification implements ShouldBroadcast
     public function toBroadcast(object $notifiable): BroadcastMessage
     {
         return new BroadcastMessage([
-            'message' => 'New inquiry from ' . $this->inquiry->name,
+            'title' => 'New Inquiry: ' . $this->inquiry->subject,
+            'message' => 'Received from ' . $this->inquiry->name,
             'url' => '/dashboard/admin/inquiries',
             'type' => 'inquiry',
         ]);

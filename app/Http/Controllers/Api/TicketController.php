@@ -13,9 +13,11 @@ use App\Notifications\TicketReplyNotification;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
+use App\Traits\LogsActivity;
 
 class TicketController extends Controller
 {
+    use LogsActivity;
     /**
      * Display a listing of tickets.
      */
@@ -67,6 +69,8 @@ class TicketController extends Controller
                     'priority' => $request->priority,
                     'status' => 'open',
                 ]);
+
+                $this->logActivity('create_ticket', "Created ticket #{$ticket->ticket_number}: {$ticket->subject}");
 
                 $reply = TicketReply::create([
                     'ticket_id' => $ticket->id,
@@ -155,6 +159,8 @@ class TicketController extends Controller
             'message' => $request->message,
         ]);
 
+        $this->logActivity('reply_ticket', "Replied to ticket #{$ticket->ticket_number}");
+
         // Handle Attachments
         if ($request->hasFile('attachments')) {
             foreach ($request->file('attachments') as $file) {
@@ -205,6 +211,8 @@ class TicketController extends Controller
         }
 
         $ticket->update(['status' => 'closed']);
+
+        $this->logActivity('close_ticket', "Closed ticket #{$ticket->ticket_number}");
 
         return response()->json([
             'message' => 'Ticket closed successfully',

@@ -50,13 +50,19 @@ class TicketReplyNotification extends Notification implements ShouldBroadcast
      */
     public function toDatabase(object $notifiable): array
     {
+        $sender = $this->reply->user;
+        $senderName = trim($sender->first_name . ' ' . $sender->last_name) ?: 'Support Team';
+        
         return [
             'ticket_id' => $this->ticket->id,
             'reply_id' => $this->reply->id,
             'ticket_number' => $this->ticket->ticket_number,
+            'title' => 'Reply to Ticket #' . $this->ticket->ticket_number,
             'message' => $this->byAdmin 
-                ? 'Support replied to your ticket: ' . $this->ticket->subject
-                : 'Customer replied to ticket: ' . $this->ticket->ticket_number,
+                ? 'Support replied: ' . $this->ticket->subject
+                : 'Customer replied: ' . $this->ticket->ticket_number,
+            'sender_name' => $senderName,
+            'sender_avatar' => $sender->avatar,
             'type' => 'ticket_reply',
             'icon' => 'support-ticket',
             'url' => $this->byAdmin 
@@ -71,9 +77,10 @@ class TicketReplyNotification extends Notification implements ShouldBroadcast
     public function toBroadcast(object $notifiable): BroadcastMessage
     {
         return new BroadcastMessage([
+            'title' => 'Reply to Ticket #' . $this->ticket->ticket_number,
             'message' => $this->byAdmin 
-                ? 'Support replied to your ticket: ' . $this->ticket->subject
-                : 'Customer replied to ticket: ' . $this->ticket->ticket_number,
+                ? 'Support replied: ' . $this->ticket->subject
+                : 'Customer replied: ' . $this->ticket->ticket_number,
             'url' => $this->byAdmin 
                 ? '/dashboard/support/view?id=' . $this->ticket->id
                 : '/dashboard/admin/tickets/view?id=' . $this->ticket->id,

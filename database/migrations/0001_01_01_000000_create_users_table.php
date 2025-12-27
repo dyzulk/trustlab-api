@@ -19,14 +19,7 @@ return new class extends Migration
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password')->nullable();
             $table->string('role')->default('customer');
-            
-            // Social Login
             $table->string('avatar')->nullable();
-            $table->string('google_id')->nullable()->unique();
-            $table->string('google_token')->nullable();
-            $table->string('github_id')->nullable()->unique();
-            $table->string('github_token')->nullable();
-            $table->string('github_refresh_token')->nullable();
 
             // Profile & Contact
             $table->string('phone')->nullable();
@@ -37,12 +30,6 @@ return new class extends Migration
             $table->string('city_state')->nullable();
             $table->string('postal_code')->nullable();
             $table->string('tax_id')->nullable();
-
-            // Social Links
-            $table->string('facebook')->nullable();
-            $table->string('twitter')->nullable();
-            $table->string('linkedin')->nullable();
-            $table->string('instagram')->nullable();
 
             // Notification Settings
             $table->boolean('settings_email_alerts')->default(true);

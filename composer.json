@@ -10,13 +10,15 @@
     "license": "MIT",
     "require": {
         "php": "^8.2",
-        "intervention/image": "^3.11",
+        "bacon/bacon-qr-code": "^3.0",
         "fakerphp/faker": "^1.23",
+        "intervention/image": "^3.11",
         "laravel/framework": "^12.0",
         "laravel/reverb": "^1.0",
         "laravel/sanctum": "^4.0",
         "laravel/socialite": "^5.24",
         "laravel/tinker": "^2.10.1",
+        "pragmarx/google2fa-laravel": "^2.3",
         "ryangjchandler/laravel-cloudflare-turnstile": "^3.0"
     },
     "require-dev": {

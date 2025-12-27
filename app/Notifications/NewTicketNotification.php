@@ -46,14 +46,20 @@ class NewTicketNotification extends Notification implements ShouldBroadcast
      */
     public function toDatabase(object $notifiable): array
     {
+        $user = $this->ticket->user;
+        $userName = trim($user->first_name . ' ' . $user->last_name) ?: 'Unknown User';
+        
         return [
             'ticket_id' => $this->ticket->id,
             'ticket_number' => $this->ticket->ticket_number,
             'subject' => $this->ticket->subject,
-            'message' => 'New support ticket received from ' . $this->ticket->user->name,
+            'title' => 'New Ticket #' . $this->ticket->ticket_number,
+            'message' => "Subject: {$this->ticket->subject}. From: {$userName}",
+            'sender_name' => $userName,
+            'sender_avatar' => $user->avatar,
             'type' => 'ticket',
             'icon' => 'support-ticket',
-            'url' => '/dashboard/admin/tickets/' . $this->ticket->id,
+            'url' => '/dashboard/admin/tickets/view?id=' . $this->ticket->id,
         ];
     }
 
@@ -63,9 +69,10 @@ class NewTicketNotification extends Notification implements ShouldBroadcast
     public function toBroadcast(object $notifiable): BroadcastMessage
     {
         return new BroadcastMessage([
-            'message' => 'New support ticket received from ' . $this->ticket->user->name,
-            'url' => '/dashboard/admin/tickets/' . $this->ticket->id,
-            'type' => 'ticket', // specific type for frontend handling
+            'title' => 'New Ticket #' . $this->ticket->ticket_number,
+            'message' => "Subject: {$this->ticket->subject}. From: {$this->ticket->user->name}",
+            'url' => '/dashboard/admin/tickets/view?id=' . $this->ticket->id,
+            'type' => 'ticket',
         ]);
     }
 }

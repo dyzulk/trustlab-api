@@ -59,12 +59,8 @@ class User extends Authenticatable
         'last_name',
         'email',
         'password',
-        'google_id',
-        'google_token',
+        'password',
         'avatar',
-        'github_id',
-        'github_token',
-        'github_refresh_token',
         'role',
         'phone',
         'bio',
@@ -74,13 +70,20 @@ class User extends Authenticatable
         'city_state',
         'postal_code',
         'tax_id',
-        'facebook',
-        'twitter',
-        'linkedin',
-        'instagram',
         'settings_email_alerts',
         'settings_certificate_renewal',
+        'default_landing_page',
+        'theme',
+        'language',
     ];
+
+    /**
+     * Get the social accounts for the user.
+     */
+    public function socialAccounts()
+    {
+        return $this->hasMany(SocialAccount::class);
+    }
 
     /**
      * Check if user is admin.

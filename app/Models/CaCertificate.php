@@ -20,12 +20,15 @@ class CaCertificate extends Model
         'common_name',
         'organization',
         'valid_from',
-        'valid_to'
+        'valid_to',
+        'download_count',
+        'last_downloaded_at'
     ];
 
     protected $casts = [
         'valid_from' => 'datetime',
         'valid_to' => 'datetime',
+        'last_downloaded_at' => 'datetime',
     ];
 
     protected static function booted()

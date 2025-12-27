@@ -25,13 +25,17 @@ Route::get('/public/legal-pages/{slug}', [\App\Http\Controllers\Api\LegalPageCon
 
 // Auth routes moved to web.php for SPA session support
 
-Route::get('/auth/{provider}/redirect', [AuthController::class, 'socialRedirect']);
-Route::get('/auth/{provider}/callback', [AuthController::class, 'socialCallback']);
+// Auth routes moved to web.php for SPA session support (manually prefixed with /api there)
+// This ensures they use the 'web' middleware stack for proper session persistence.
 Route::get('/navigation-debug', [NavigationController::class, 'debug']);
 
 Route::middleware(['auth:sanctum'])->group(function () {
+    Route::delete('/auth/social/{provider}', [AuthController::class, 'disconnectSocial']);
+    Route::post('/auth/set-password', [AuthController::class, 'setPassword']);
+    Route::get('/auth/link-token', [AuthController::class, 'getLinkToken']);
+
     Route::get('/user', function (Request $request) {
-        return $request->user();
+        return $request->user()->load('socialAccounts');
     });
     Route::get('/services', [ServiceController::class, 'index']);
     Route::get('/navigation', [NavigationController::class, 'index']);

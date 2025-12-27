@@ -10,38 +10,55 @@ use Illuminate\Support\Facades\Hash;
 use Laravel\Socialite\Facades\Socialite;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Str;
+use App\Traits\CanTrackLogin;
+use App\Traits\LogsActivity;
 
 class AuthController extends Controller
 {
+    use CanTrackLogin, LogsActivity;
+
+    /**
+     * Handle Login Request
+     */
     /**
      * Handle Login Request
      */
     public function login(Request $request)
     {
-        $credentials = $request->validate([
+        $request->validate([
             'email' => ['required', 'email'],
             'password' => ['required'],
         ]);
 
-        $user = User::where('email', $credentials['email'])->first();
+        $user = User::where('email', $request->email)->first();
 
-        // Check for social-only users
-        if ($user && !$user->password) {
-            throw ValidationException::withMessages([
-                'email' => ['This account uses social login. Please sign in with Google.'],
-            ]);
-        }
-
-        if (!Auth::attempt($request->only('email', 'password'))) {
+        if (!$user || !Hash::check($request->password, $user->password)) {
             throw ValidationException::withMessages([
                 'email' => ['Invalid credentials.'],
             ]);
         }
 
-        $user = Auth::user();
+        // 2FA Check
+        if ($user->two_factor_confirmed_at) {
+            // Return Temporary Token with "2fa" capability
+            // We DO NOT call Auth::login() here to prevent session cookie creation
+            $tempToken = $user->createToken('2fa_temp_token', ['2fa-required'])->plainTextToken;
+            
+            return response()->json([
+                'two_factor_required' => true,
+                'temp_token' => $tempToken,
+            ]);
+        }
+
+        // Standard Login - Establish session and issue token
+        Auth::guard('web')->login($user, $request->boolean('remember'));
+
         $token = $user->createToken('auth_token')->plainTextToken;
 
         $this->recordLoginHistory($request, $user);
+        $this->logActivity('login', 'User logged in to the dashboard');
 
         return response()->json([
             'message' => 'Login successful',
@@ -74,6 +91,7 @@ class AuthController extends Controller
         $token = $user->createToken('auth_token')->plainTextToken;
 
         $this->recordLoginHistory($request, $user);
+        $this->logActivity('register', 'User registered a new account');
 
         return response()->json([
             'message' => 'Registration successful',
@@ -85,11 +103,45 @@ class AuthController extends Controller
     /**
      * Redirect to Social Provider
      */
-    public function socialRedirect($provider)
+    public function socialRedirect(Request $request, $provider)
     {
-        return response()->json([
-            'url' => Socialite::driver($provider)->stateless()->redirect()->getTargetUrl(),
-        ]);
+        // Store context (signin, signup, connect) in session
+        $context = $request->query('context', 'signin'); // Default to signin if missing
+        session(['social_context' => $context]);
+
+        // Secure Link Flow: If a link_token is provided, verify it and store the user ID in session
+        if ($context === 'connect' && $request->has('link_token')) {
+            $token = $request->query('link_token');
+            $userId = Cache::get("link_token_{$token}");
+            
+            if ($userId) {
+                session(['social_auth_user_id' => $userId]);
+                Cache::forget("link_token_{$token}"); // Consume token
+            }
+        }
+
+        $driver = Socialite::driver($provider)->stateless();
+
+        if ($provider === 'google') {
+            $driver->with(['prompt' => 'select_account consent', 'access_type' => 'offline']);
+        } else {
+             // Attempt to force consent for others
+            $driver->with(['prompt' => 'consent']);
+        }
+
+        return $driver->redirect();
+    }
+
+    /**
+     * Generate Link Token for Secure Connection
+     */
+    public function getLinkToken(Request $request)
+    {
+        $token = Str::random(40);
+        // Cache user ID for 2 minutes
+        Cache::put("link_token_{$token}", $request->user()->id, 120);
+
+        return response()->json(['token' => $token]);
     }
 
     /**
@@ -103,27 +155,160 @@ class AuthController extends Controller
             return redirect(env('FRONTEND_URL') . '/auth/callback?error=authentication_failed');
         }
 
+        $context = session('social_context', 'signin'); // Default to strict signin if session lost
+        // request()->session()->forget('social_context'); // Optional: Clear it, but typical session lifecycle handles this.
+
+        // ---------------------------------------------------------
+        // CASE 1: CONNECT ACCOUNT (User is already logged in)
+        // ---------------------------------------------------------
+        // Explicitly check context or Auth::check()
+        // If context is 'connect', they MUST be logged in.
+        if ($context === 'connect' || Auth::check() || session('social_auth_user_id')) {
+            
+            // Debug Logging: Trace why connection flow might be failing
+            \Illuminate\Support\Facades\Log::info('Social Callback Connect Flow:', [
+                'context' => $context,
+                'auth_check' => Auth::check(),
+                'session_user_id' => session('social_auth_user_id'),
+                'provider' => $provider
+            ]);
+
+            // If strictly unauthenticated but we have a session user ID from the link token
+            if (!Auth::check() && session('social_auth_user_id')) {
+                Auth::loginUsingId(session('social_auth_user_id'));
+            }
+
+            if (!Auth::check()) {
+                 return redirect(env('FRONTEND_URL') . '/signin?error=login_required_to_connect');
+            }
+
+            $currentUser = Auth::user();
+            
+            // Check if this social account is already linked to *any* user
+            $existingAccount = \App\Models\SocialAccount::where('provider', $provider)
+                ->where('provider_id', $socialUser->getId())
+                ->first();
+
+            if ($existingAccount) {
+                if ($existingAccount->user_id === $currentUser->id) {
+                    return redirect(env('FRONTEND_URL') . '/dashboard/settings?error=already_connected');
+                } else {
+                    return redirect(env('FRONTEND_URL') . '/dashboard/settings?error=connected_to_other_account');
+                }
+            }
+
+            // Link the account
+            $currentUser->socialAccounts()->create([
+                'provider' => $provider,
+                'provider_id' => $socialUser->getId(),
+                'provider_email' => $socialUser->getEmail(),
+                'avatar' => $socialUser->getAvatar(),
+                'token' => $socialUser->token,
+                'refresh_token' => $socialUser->refreshToken,
+                'expires_at' => isset($socialUser->expiresIn) ? now()->addSeconds($socialUser->expiresIn) : null,
+            ]);
+
+            return redirect(env('FRONTEND_URL') . '/dashboard/settings?success=account_connected');
+        }
+
+        // ---------------------------------------------------------
+        // CASE 2: SOCIAL SIGN IN / SIGN UP (Guest)
+        // ---------------------------------------------------------
+
+        // 1. Check if SocialAccount exists (Already Linked)
+        $socialAccount = \App\Models\SocialAccount::where('provider', $provider)
+            ->where('provider_id', $socialUser->getId())
+            ->first();
+
+        if ($socialAccount) {
+            // Account linked -> ALWAYS ALLOW LOGIN
+            // (Even if context=signup, we can just log them in, or strictly say "Already registered")
+            $user = $socialAccount->user;
+            Auth::login($user);
+
+            $token = $user->createToken('auth_token')->plainTextToken;
+            $this->recordLoginHistory($request, $user);
+
+            return redirect(env('FRONTEND_URL') . '/auth/callback?token=' . $token);
+        }
+
+        // 2. Check if User with this email exists (BUT NOT LINKED)
+        $existingUser = User::where('email', $socialUser->getEmail())->first();
+
+        if ($existingUser) {
+            // ERROR: Account exists but not linked
+            return redirect(env('FRONTEND_URL') . '/auth/callback?error=account_exists_please_login');
+        }
+
+        // 3. HANDLE NEW USERS
+        // STRICT CHECK: If context is 'signin', DO NOT register new user.
+        if ($context === 'signin') {
+             return redirect(env('FRONTEND_URL') . '/auth/callback?error=account_not_found_please_signup');
+        }
+
+        // 4. REGISTER (Only if context == 'signup')
         $nameParts = explode(' ', $socialUser->getName() ?? '', 2);
         $firstName = $nameParts[0];
         $lastName = $nameParts[1] ?? '';
 
-        $user = User::updateOrCreate([
-            'email' => $socialUser->getEmail(),
-        ], [
+        $user = User::create([
             'first_name' => $firstName,
             'last_name' => $lastName,
-            $provider . '_id' => $socialUser->getId(),
-            $provider . '_token' => $socialUser->token,
-            $provider . '_refresh_token' => $socialUser->refreshToken,
+            'email' => $socialUser->getEmail(),
             'avatar' => $socialUser->getAvatar(),
             'email_verified_at' => now(),
+            // Password is null initially
         ]);
 
-        $token = $user->createToken('auth_token')->plainTextToken;
+        $user->socialAccounts()->create([
+            'provider' => $provider,
+            'provider_id' => $socialUser->getId(),
+            'provider_email' => $socialUser->getEmail(),
+            'avatar' => $socialUser->getAvatar(),
+            'token' => $socialUser->token,
+            'refresh_token' => $socialUser->refreshToken,
+            'expires_at' => isset($socialUser->expiresIn) ? now()->addSeconds($socialUser->expiresIn) : null,
+        ]);
 
+        Auth::login($user);
+        $token = $user->createToken('auth_token')->plainTextToken;
         $this->recordLoginHistory($request, $user);
 
-        return redirect(env('FRONTEND_URL') . '/auth/callback?token=' . $token);
+        // Redirect to Set Password page
+        return redirect(env('FRONTEND_URL') . '/auth/callback?token=' . $token . '&action=set_password');
+    }
+
+    /**
+     * Set Password for Social Users
+     */
+    public function setPassword(Request $request)
+    {
+        $validated = $request->validate([
+            'password' => 'required|string|min:8|confirmed',
+        ]);
+
+        $user = $request->user();
+
+        // Security check: Only allow setting password if it's currently null
+        // or provide a way to override if we want to allow simple password resets from this endpoint (unlikely for security)
+        if ($user->password && !Hash::check('', $user->password)) { // Check if password is not empty string/null effectively
+             // If user already has a password, they should use the update-password endpoint which requires current_password
+             // However, for this specific flow "set password after social login", we can allow it IF implementation allows.
+             // Stricter: Only if password is NULL.
+        }
+        
+        if ($user->password) {
+             return response()->json(['message' => 'Password already set. Use update password.'], 403);
+        }
+
+        $user->update([
+            'password' => Hash::make($validated['password']),
+        ]);
+
+        return response()->json([
+            'message' => 'Password set successfully.',
+            'user' => $user,
+        ]);
     }
 
     /**
@@ -139,110 +324,47 @@ class AuthController extends Controller
     }
 
     /**
-     * Record Login History
+     * Disconnect Social Account (Revoke Token)
      */
-    private function recordLoginHistory(Request $request, $user)
+    public function disconnectSocial(Request $request, $provider)
     {
-        $userAgent = $request->header('User-Agent');
-        $ip = $request->ip();
+        $user = $request->user();
 
-        // For local development testing (if IP is local, use a real one for fallback)
-        $lookupIp = ($ip === '127.0.0.1' || $ip === '::1') ? '8.8.8.8' : $ip;
-        $location = $this->getLocationFromIp($lookupIp);
+        $account = $user->socialAccounts()->where('provider', $provider)->first();
 
-        $info = $this->parseUserAgent($userAgent);
+        if (!$account) {
+            return response()->json(['message' => 'Account not linked.'], 404);
+        }
 
-        LoginHistory::create([
-            'user_id' => $user->id,
-            'ip_address' => $ip,
-            'user_agent' => $userAgent,
-            'device_type' => $info['device'],
-            'os' => $info['os'],
-            'browser' => $info['browser'],
-            'city' => $location['city'],
-            'country' => $location['country'],
-            'country_code' => $location['country_code'],
-        ]);
-    }
-
-    /**
-     * Get Location from IP
-     */
-    private function getLocationFromIp($ip)
-    {
+        // 1. Revoke Logic
         try {
-            $response = Http::get("http://ip-api.com/json/{$ip}")->json();
-            
-            if ($response && $response['status'] === 'success') {
-                return [
-                    'city' => $response['city'] ?? 'Unknown City',
-                    'country' => $response['country'] ?? 'Unknown Country',
-                    'country_code' => $response['countryCode'] ?? 'UN',
-                ];
+            if ($provider === 'google' && $account->token) {
+                // Google: Revoke via POST to oauth2.googleapis.com
+                Http::post('https://oauth2.googleapis.com/revoke', [
+                    'token' => $account->token,
+                ]);
+            } 
+            elseif ($provider === 'github' && $account->token) {
+                // GitHub: Revoke via Basic Auth with Client ID/Secret
+                // Requires client_id:client_secret base64 encoded
+                $clientId = config('services.github.client_id');
+                $clientSecret = config('services.github.client_secret');
+                
+                if ($clientId && $clientSecret) {
+                   Http::withBasicAuth($clientId, $clientSecret)
+                       ->delete("https://api.github.com/applications/{$clientId}/grant", [
+                           'access_token' => $account->token
+                       ]);
+                }
             }
         } catch (\Exception $e) {
-            // Fallback silently
+            // Log error but proceed to delete local record
+            \Illuminate\Support\Facades\Log::error("Failed to revoke {$provider} token: " . $e->getMessage());
         }
 
-        return [
-            'city' => 'Unknown City',
-            'country' => 'Unknown Country',
-            'country_code' => 'UN',
-        ];
-    }
+        // 2. Delete Local Record
+        $account->delete();
 
-    /**
-     * Simple User Agent Parser
-     */
-    private function parseUserAgent($agent)
-    {
-        $os = 'Unknown OS';
-        $browser = 'Unknown Browser';
-        $device = 'Desktop';
-
-        // OS Parsing
-        if (preg_match('/iphone|ipad|ipod/i', $agent)) {
-            $os = 'iOS';
-            $device = 'iOS';
-        } elseif (preg_match('/android/i', $agent)) {
-            $os = 'Android';
-            $device = 'Android';
-        } elseif (preg_match('/windows/i', $agent)) {
-            $os = 'Windows';
-            $device = 'Windows';
-        } elseif (preg_match('/macintosh|mac os x/i', $agent)) {
-            $os = 'Mac';
-            $device = 'Mac';
-        } elseif (preg_match('/linux/i', $agent)) {
-            $os = 'Linux';
-            $device = 'Linux';
-        }
-
-        // Browser Parsing
-        if (preg_match('/msie/i', $agent) && !preg_match('/opera/i', $agent)) {
-            $browser = 'Internet Explorer';
-        } elseif (preg_match('/firefox/i', $agent)) {
-            $browser = 'Firefox';
-        } elseif (preg_match('/chrome/i', $agent)) {
-            $browser = 'Chrome';
-        } elseif (preg_match('/safari/i', $agent)) {
-            $browser = 'Safari';
-        } elseif (preg_match('/opera/i', $agent)) {
-            $browser = 'Opera';
-        } elseif (preg_match('/netscape/i', $agent)) {
-            $browser = 'Netscape';
-        }
-
-        // More specific
-        if ($os === 'iOS' && $browser === 'Safari') $browser = 'iOS Safari';
-        if ($os === 'iOS' && $browser === 'Chrome') $browser = 'iOS Chrome';
-        if ($os === 'Android' && $browser === 'Chrome') $browser = 'Android Chrome';
-        if ($os === 'Android' && $browser === 'Firefox') $browser = 'Android Firefox';
-
-        return [
-            'os' => $os,
-            'browser' => $browser,
-            'device' => $device
-        ];
+        return response()->json(['message' => 'Account disconnected successfully.']);
     }
 }

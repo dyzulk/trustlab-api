@@ -14,10 +14,24 @@ class NotificationController extends Controller
     public function index(Request $request)
     {
         $user = $request->user();
+        $query = $user->notifications();
+
+        // Filter by state
+        if ($request->has('filter')) {
+            if ($request->filter === 'unread') {
+                $query = $user->unreadNotifications();
+            } elseif ($request->filter === 'read') {
+                $query = $user->readNotifications();
+            }
+        }
+
+        // Search in data (JSON)
+        if ($request->has('search')) {
+            $search = $request->search;
+            $query->where('data', 'like', "%{$search}%");
+        }
         
-        $notifications = $user->notifications()
-            ->latest()
-            ->paginate(10);
+        $notifications = $query->latest()->paginate(10);
 
         return response()->json($notifications);
     }
