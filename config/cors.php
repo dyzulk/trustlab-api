@@ -21,7 +21,9 @@ return [
 
     'allowed_origins' => ['http://localhost:3000', 'http://127.0.0.1:3000', 'https://trustlab.dyzulk.com', 'https://trustlab-api.dyzulk.com', 'https://trustlab.pages.dev'],
 
-    'allowed_origins_patterns' => [],
+    'allowed_origins_patterns' => [
+        '#^https://.*\.trustlab\.pages\.dev$#',
+    ],
 
     'allowed_headers' => ['*'],
 
