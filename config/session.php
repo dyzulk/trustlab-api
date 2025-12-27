@@ -163,15 +163,22 @@ return [
 
         $host = $_SERVER['HTTP_HOST'];
 
-        if (str_ends_with($host, '.trustlab.pages.dev')) {
-            return '.trustlab.pages.dev';
-        }
-
-        if (str_ends_with($host, '.dyzulk.com')) {
+        // Always use dyzulk.com for the cookie domain because the API is hosted there.
+        // A cookie set by dyzulk.com cannot have a .pages.dev domain.
+        if (str_contains($host, 'dyzulk.com')) {
             return '.dyzulk.com';
         }
 
         return env('SESSION_DOMAIN');
+    })(),
+
+    'same_site' => (function() {
+        // If the request comes from a different TLD (like .pages.dev), 
+        // we must use SameSite=None and Secure=true for the browser to send the cookie.
+        if (isset($_SERVER['HTTP_ORIGIN']) && str_ends_with($_SERVER['HTTP_ORIGIN'], '.trustlab.pages.dev')) {
+            return 'none';
+        }
+        return env('SESSION_SAME_SITE', 'lax');
     })(),
 
     /*
