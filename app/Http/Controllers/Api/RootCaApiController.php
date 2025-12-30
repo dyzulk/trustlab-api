@@ -18,7 +18,7 @@ class RootCaApiController extends Controller
 
     public function index()
     {
-        $this->authorizeAdmin();
+        $this->authorizeAdminOrOwner();
 
         $certificates = CaCertificate::all()->map(function($cert) {
             $cert->status = $cert->valid_to->isFuture() ? 'valid' : 'expired';
@@ -33,7 +33,7 @@ class RootCaApiController extends Controller
 
     public function renew(Request $request, CaCertificate $certificate)
     {
-        $this->authorizeAdmin();
+        $this->authorizeAdminOrOwner();
 
         $days = (int) $request->input('days', 3650);
 
@@ -60,10 +60,10 @@ class RootCaApiController extends Controller
         }
     }
 
-    protected function authorizeAdmin()
+    protected function authorizeAdminOrOwner()
     {
-        if (auth()->user()->role !== 'admin') {
-            abort(403, 'Unauthorized action.');
+        if (!auth()->user()->isAdminOrOwner()) {
+            abort(403, 'Unauthorized action. Admin/Owner access required.');
         }
     }
 }

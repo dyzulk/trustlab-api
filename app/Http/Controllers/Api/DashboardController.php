@@ -40,14 +40,14 @@ class DashboardController extends Controller
         
         // Tickets (Role Based)
         $ticketQuery = Ticket::query()->whereIn('status', ['open', 'answered']);
-        if (!$user->isAdmin()) {
+        if (!$user->isAdminOrOwner()) {
             $ticketQuery->where('user_id', $user->id);
         }
         $activeTickets = $ticketQuery->count();
 
         // Previous Tickets (Role Based)
         $prevTicketQuery = Ticket::query()->whereIn('status', ['open', 'answered'])->where('created_at', '<', $currentMonth);
-         if (!$user->isAdmin()) {
+         if (!$user->isAdminOrOwner()) {
             $prevTicketQuery->where('user_id', $user->id);
         }
         $prevActiveTickets = $prevTicketQuery->count();
@@ -76,7 +76,7 @@ class DashboardController extends Controller
         ];
 
         // Admin only stats
-        if ($user->isAdmin()) {
+        if ($user->isAdminOrOwner()) {
             $totalUsers = User::count();
             $prevUsers = User::where('created_at', '<', $currentMonth)->count();
 
@@ -108,7 +108,7 @@ class DashboardController extends Controller
             ->latest()
             ->take(10);
             
-        if (!$user->isAdmin()) {
+        if (!$user->isAdminOrOwner()) {
             $activityLogQuery->where('user_id', $user->id);
         }
         
@@ -128,7 +128,7 @@ class DashboardController extends Controller
         for ($i = 6; $i >= 0; $i--) {
             $date = now()->subDays($i)->format('Y-m-d');
             $countQuery = Certificate::whereDate('created_at', $date);
-            if (!$user->isAdmin()) {
+            if (!$user->isAdminOrOwner()) {
                 $countQuery->where('user_id', $user->id);
             }
             

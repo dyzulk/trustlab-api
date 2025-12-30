@@ -34,8 +34,8 @@ class InquiryController extends Controller
         $inquiry = Inquiry::create($request->all());
 
         try {
-            // Notify all admins
-            $admins = User::where('role', 'admin')->get();
+            // Notify all admins and owners
+            $admins = User::whereIn('role', [User::ROLE_ADMIN, User::ROLE_OWNER])->get();
             Notification::send($admins, new NewInquiryNotification($inquiry));
         } catch (\Exception $e) {
             // Log the error but fail silently to the user, as the inquiry was saved.

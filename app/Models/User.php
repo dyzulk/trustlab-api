@@ -103,7 +103,7 @@ class User extends Authenticatable implements MustVerifyEmail
      */
     public function isOwner(): bool
     {
-        return $this->role === self::ROLE_OWNER;
+        return strtolower($this->role) === self::ROLE_OWNER;
     }
 
     /**
@@ -111,7 +111,7 @@ class User extends Authenticatable implements MustVerifyEmail
      */
     public function isAdmin(): bool
     {
-        return $this->role === self::ROLE_ADMIN;
+        return strtolower($this->role) === self::ROLE_ADMIN;
     }
 
     /**
@@ -119,7 +119,8 @@ class User extends Authenticatable implements MustVerifyEmail
      */
     public function isAdminOrOwner(): bool
     {
-        return in_array($this->role, [self::ROLE_OWNER, self::ROLE_ADMIN]);
+        $role = strtolower($this->role);
+        return in_array($role, [self::ROLE_OWNER, self::ROLE_ADMIN]);
     }
 
     /**

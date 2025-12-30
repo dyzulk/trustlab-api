@@ -28,7 +28,7 @@ class TicketController extends Controller
         $query = Ticket::with(['user:id,first_name,last_name,email,avatar', 'replies.user:id,first_name,last_name,avatar', 'replies.attachments']);
 
         // Only show all tickets if user is admin AND explicitly asks for all
-        if ($user->isAdmin() && $request->has('all')) {
+        if ($user->isAdminOrOwner() && $request->has('all')) {
             // No additional where clause needed
         } else {
             // Everyone else (including admins in personal view) only sees their own
@@ -96,7 +96,7 @@ class TicketController extends Controller
 
                 // Notify Admins
                 try {
-                    $admins = User::where('role', 'admin')
+                    $admins = User::whereIn('role', ['admin', 'owner'])
                         ->where('id', '!=', $user->id)
                         ->get();
                     if ($admins->isNotEmpty()) {
@@ -126,7 +126,7 @@ class TicketController extends Controller
         $user = $request->user();
         $ticket = Ticket::with(['user:id,first_name,last_name,email,avatar', 'replies.user:id,first_name,last_name,avatar', 'replies.attachments'])->findOrFail($id);
 
-        if (!$user->isAdmin() && $ticket->user_id !== $user->id) {
+        if (!$user->isAdminOrOwner() && $ticket->user_id !== $user->id) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
@@ -141,7 +141,7 @@ class TicketController extends Controller
         $user = $request->user();
         $ticket = Ticket::findOrFail($id);
 
-        if (!$user->isAdmin() && $ticket->user_id !== $user->id) {
+        if (!$user->isAdminOrOwner() && $ticket->user_id !== $user->id) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
@@ -184,7 +184,7 @@ class TicketController extends Controller
 
         // Update ticket status & Notify
         try {
-            if ($user->isAdmin()) {
+            if ($user->isAdminOrOwner()) {
                 $ticket->update(['status' => 'answered']);
                 // Notify Customer
                 $ticketUser = $ticket->user;
@@ -192,19 +192,19 @@ class TicketController extends Controller
                     $ticketUser->notify(new TicketReplyNotification($ticket, $reply, true));
                 }
 
-                // Also notify OTHER admins
-                $otherAdmins = User::where('role', 'admin')
+                // Also notify OTHER admins/owners
+                $otherStaff = User::whereIn('role', ['admin', 'owner'])
                     ->where('id', '!=', $user->id)
                     ->get();
-                if ($otherAdmins->isNotEmpty()) {
-                    Notification::send($otherAdmins, new TicketReplyNotification($ticket, $reply, true));
+                if ($otherStaff->isNotEmpty()) {
+                    Notification::send($otherStaff, new TicketReplyNotification($ticket, $reply, true));
                 }
             } else {
                 $ticket->update(['status' => 'open']);
-                // Notify All Admins
-                $admins = User::where('role', 'admin')->get();
-                if ($admins->isNotEmpty()) {
-                    Notification::send($admins, new TicketReplyNotification($ticket, $reply, false));
+                // Notify All Staff (Admins & Owners)
+                $staff = User::whereIn('role', ['admin', 'owner'])->get();
+                if ($staff->isNotEmpty()) {
+                    Notification::send($staff, new TicketReplyNotification($ticket, $reply, false));
                 }
             }
         } catch (\Throwable $e) {
@@ -225,7 +225,7 @@ class TicketController extends Controller
         $user = $request->user();
         $ticket = Ticket::findOrFail($id);
 
-        if (!$user->isAdmin() && $ticket->user_id !== $user->id) {
+        if (!$user->isAdminOrOwner() && $ticket->user_id !== $user->id) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
