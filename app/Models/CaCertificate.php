@@ -1,0 +1,42 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use App\Helpers\UuidHelper;
+
+class CaCertificate extends Model
+{
+    protected $primaryKey = 'uuid';
+    public $incrementing = false;
+    protected $keyType = 'string';
+
+    protected $fillable = [
+        'uuid', 
+        'ca_type', 
+        'cert_content', 
+        'key_content',
+        'serial_number',
+        'common_name',
+        'organization',
+        'valid_from',
+        'valid_to',
+        'download_count',
+        'last_downloaded_at'
+    ];
+
+    protected $casts = [
+        'valid_from' => 'datetime',
+        'valid_to' => 'datetime',
+        'last_downloaded_at' => 'datetime',
+    ];
+
+    protected static function booted()
+    {
+        static::creating(function ($model) {
+            if (empty($model->uuid)) {
+                $model->uuid = UuidHelper::generate();
+            }
+        });
+    }
+}
