@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>502 Bad Gateway | TrustLab API</title>
+    <style>
+        /* Minimal Tailwind-like CSS for Error Pages */
+        *, ::after, ::before { box-sizing: border-box; border-width: 0; border-style: solid; border-color: #e5e7eb; }
+        html { line-height: 1.5; -webkit-text-size-adjust: 100%; font-family: ui-sans-serif, system-ui, sans-serif; }
+        body { margin: 0; line-height: inherit; }
+        .h-full { height: 100%; }
+        .min-h-screen { min-height: 100vh; }
+        .relative { position: relative; }
+        .absolute { position: absolute; }
+        .flex { display: flex; }
+        .flex-col { flex-direction: column; }
+        .items-center { align-items: center; }
+        .justify-center { justify-content: center; }
+        .overflow-hidden { overflow: hidden; }
+        .p-6 { padding: 1.5rem; }
+        .z-1 { z-index: 1; }
+        .-z-1 { z-index: -1; }
+        .mx-auto { margin-left: auto; margin-right: auto; }
+        .w-full { width: 100%; }
+        .max-w-\[242px\] { max-width: 242px; }
+        .text-center { text-align: center; }
+        .mb-8 { margin-bottom: 2rem; }
+        .font-bold { font-weight: 700; }
+        .text-gray-800 { color: #1f2937; }
+        .text-3xl { font-size: 1.875rem; line-height: 2.25rem; }
+        .mt-10 { margin-top: 2.5rem; }
+        .mb-6 { margin-bottom: 1.5rem; }
+        .text-base { font-size: 1rem; line-height: 1.5rem; }
+        .text-gray-700 { color: #374151; }
+        .text-gray-500 { color: #6b7280; }
+        .inline-flex { display: inline-flex; }
+        .rounded-lg { border-radius: 0.5rem; }
+        .border { border-width: 1px; }
+        .border-gray-300 { border-color: #d1d5db; }
+        .bg-white { background-color: #ffffff; }
+        .px-5 { padding-left: 1.25rem; padding-right: 1.25rem; }
+        .py-3\.5 { padding-top: 0.875rem; padding-bottom: 0.875rem; }
+        .text-sm { font-size: 0.875rem; line-height: 1.25rem; }
+        .font-medium { font-weight: 500; }
+        .shadow-sm { box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); }
+        .hover\:bg-gray-50:hover { background-color: #f9fafb; }
+        .hover\:text-gray-800:hover { color: #1f2937; }
+        .bottom-6 { bottom: 1.5rem; }
+        .left-1\/2 { left: 50%; }
+        .-translate-x-1\/2 { transform: translateX(-50%); }
+        .right-0 { right: 0; }
+        .top-0 { top: 0; }
+        .rotate-180 { transform: rotate(180deg); }
+        .max-w-\[250px\] { max-width: 250px; }
+        .text-decoration-none { text-decoration: none; }
+        
+        /* Dark Mode Support (Simple media query based) */
+        @media (prefers-color-scheme: dark) {
+            body { background-color: #111827; }
+            .dark\:text-white\/90 { color: rgba(255, 255, 255, 0.9); }
+            .dark\:text-gray-400 { color: #9ca3af; }
+            .dark\:hidden { display: none; }
+            .dark\:block { display: block; }
+            .dark\:bg-gray-800 { background-color: #1f2937; }
+            .dark\:border-gray-700 { border-color: #374151; }
+            .dark\:hover\:bg-white\/\[0\.03\]:hover { background-color: rgba(255, 255, 255, 0.03); }
+            .dark\:hover\:text-gray-200:hover { color: #e5e7eb; }
+        }
+        
+        /* Responsive */
+        @media (min-width: 640px) {
+            .sm\:max-w-\[472px\] { max-width: 472px; }
+            .sm\:text-lg { font-size: 1.125rem; line-height: 1.75rem; }
+        }
+        @media (min-width: 1280px) {
+            .xl\:max-w-\[450px\] { max-width: 450px; }
+            .xl\:text-title-2xl { font-size: 4.5rem; line-height: 1; }
+        }
+    </style>
+</head>
+<body>
+    <div class="relative flex flex-col items-center justify-center min-h-screen p-6 overflow-hidden z-1">
+        <!-- Common Grid Shape -->
+        <div>
+            <div class="absolute right-0 top-0 -z-1 w-full max-w-[250px] xl:max-w-[450px]">
+                <img src="/images/shape/grid-01.svg" alt="grid" />
+            </div>
+            <div class="absolute bottom-0 left-0 -z-1 w-full max-w-[250px] rotate-180 xl:max-w-[450px]">
+                <img src="/images/shape/grid-01.svg" alt="grid" />
+            </div>
+        </div>
+
+        <!-- Centered Content -->
+        <div class="mx-auto w-full max-w-[242px] text-center sm:max-w-[472px]">
+            <h1 class="mb-8 font-bold text-gray-800 text-3xl dark:text-white/90 xl:text-title-2xl">
+                ERROR
+            </h1>
+
+            <img src="/images/error/503.svg" alt="502" class="dark:hidden" style="margin: 0 auto;" />
+            <img src="/images/error/503-dark.svg" alt="502" class="hidden dark:block" style="margin: 0 auto; display: none;" />
+            <!-- Script to handle image toggle based on system preference -->
+            <script>
+                if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                    document.querySelector('.dark\\:hidden').style.display = 'none';
+                    document.querySelector('.hidden.dark\\:block').style.display = 'block';
+                }
+            </script>
+
+            <p class="mt-10 mb-6 text-base text-gray-700 dark:text-gray-400 sm:text-lg">
+                Bad Gateway. The server received an invalid response.
+            </p>
+
+            <a href="/" class="text-decoration-none inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-5 py-3.5 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 hover:text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] dark:hover:text-gray-200">
+                Back to home
+            </a>
+        </div>
+        
+        <!-- Footer -->
+        <p class="absolute text-sm text-center text-gray-500 -translate-x-1/2 bottom-6 left-1/2 dark:text-gray-400">
+            &copy; 2025 - TrustLab API
+        </p>
+    </div>
+</body>
+</html>
