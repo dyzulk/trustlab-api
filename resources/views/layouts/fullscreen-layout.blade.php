@@ -11,7 +11,7 @@
     <!-- SEO Meta Tags -->
     <meta name="description" content="@yield('meta_description', 'Professional Certificate Authority and API Management System for modern developers. Issue SSL/TLS certificates and manage API keys with ease.')">
     <meta name="keywords" content="@yield('meta_keywords', 'certificate authority, ssl manager, api key management, trustlab, security portal')">
-    <meta name="robots" content="@yield('robots', 'index, follow')">
+    <meta name="robots" content="@yield('robots', 'noindex, nofollow, noarchive')">
 
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website">

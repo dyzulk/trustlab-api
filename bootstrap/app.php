@@ -18,6 +18,13 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'admin' => \App\Http\Middleware\AdminMiddleware::class,
         ]);
+        
+        // Anti-crawler header
+        $middleware->append(function ($request, $next) {
+            $response = $next($request);
+            $response->headers->set('X-Robots-Tag', 'noindex, nofollow, noarchive');
+            return $response;
+        });
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

@@ -33,7 +33,7 @@
         </div>
         
         <p class="absolute text-sm text-center text-gray-500 -translate-x-1/2 bottom-6 left-1/2 dark:text-gray-400">
-            &copy; 2025 - {{ $currentYear }} | {{ config('app.name') }} All Rights Reserved
+            &copy; 2025 - {{ $currentYear }} {{ config('app.name') }} All Rights Reserved
         </p>
     </div>
 @endsection
