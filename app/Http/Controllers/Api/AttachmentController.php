@@ -69,5 +69,4 @@ class AttachmentController extends Controller
             return response()->json(['error' => 'Server Error', 'message' => $e->getMessage()], 500);
         }
     }
-    }
 }
