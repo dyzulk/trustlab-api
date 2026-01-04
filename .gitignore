@@ -4,6 +4,7 @@
 .env.backup
 .env.example.for.local
 .env.example.for.production
+.env.production.editable
 .env.production.soft.copy
 .phpactor.json
 .phpunit.result.cache
