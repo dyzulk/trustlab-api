@@ -14,8 +14,6 @@ class AttachmentController extends Controller
      */
     public function download(Request $request, TicketAttachment $attachment)
     {
-    public function download(Request $request, TicketAttachment $attachment)
-    {
         try {
             // Paranoid Auth Check
             $user = $request->user();
