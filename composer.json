@@ -19,8 +19,7 @@
         "laravel/socialite": "^5.24",
         "laravel/tinker": "^2.10.1",
         "league/flysystem-aws-s3-v3": "3.0",
-        "pragmarx/google2fa-laravel": "^2.3",
-        "ryangjchandler/laravel-cloudflare-turnstile": "^3.0"
+        "pragmarx/google2fa-laravel": "^2.3"
     },
     "require-dev": {
         "laravel/pail": "^1.2.2",

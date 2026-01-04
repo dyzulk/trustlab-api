@@ -14,7 +14,6 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 use App\Traits\CanTrackLogin;
 use App\Traits\LogsActivity;
-use RyanChandler\LaravelCloudflareTurnstile\Rules\Turnstile;
 
 class AuthController extends Controller
 {
