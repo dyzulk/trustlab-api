@@ -14,40 +14,45 @@ class AttachmentController extends Controller
      */
     public function download(Request $request, TicketAttachment $attachment)
     {
-        $user = $request->user();
+        try {
+            $user = $request->user();
 
-        // 1. Authorization Logic
-        // Load relationships needed for checking
-        $attachment->load(['reply.ticket']);
-        $ticket = $attachment->reply->ticket;
+            // 1. Authorization Logic
+            $attachment->load(['reply.ticket']);
+            $ticket = $attachment->reply->ticket;
 
-        // Check if user is owner of the ticket OR is Admin/Owner
-        if ($ticket->user_id !== $user->id && !$user->isAdminOrOwner()) {
-            abort(403, 'Unauthorized access to this attachment.');
+            if ($ticket->user_id !== $user->id && !$user->isAdminOrOwner()) {
+                abort(403, 'Unauthorized access to this attachment.');
+            }
+
+            // 2. Fetch File
+            $path = $attachment->file_path;
+            
+            if (filter_var($path, FILTER_VALIDATE_URL)) {
+                 return redirect($path);
+            }
+
+            $disk = 'r2-private';
+
+            if (!Storage::disk($disk)->exists($path)) {
+                \Log::error("Attachment 404: Path [$path] not found on disk [$disk]");
+                abort(404, 'File not found on secure storage.');
+            }
+
+            return Storage::disk($disk)->download($path, $attachment->file_name);
+
+        } catch (\Exception $e) {
+            \Log::error("Attachment Download Error: " . $e->getMessage(), [
+                'attachment_id' => $attachment->id,
+                'path' => $attachment->file_path ?? 'unknown',
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return response()->json([
+                'error' => 'Server Error', 
+                'message' => $e->getMessage(),
+                'file_path' => $attachment->file_path ?? 'unknown'
+            ], 500);
         }
-
-        // 2. Fetch File from Private R2 Bucket
-        // We assume new uploads store 'relative/path.ext' in DB
-        // But legacy uploads stored 'https://cdn...'
-        
-        $path = $attachment->file_path;
-        $disk = 'r2-private';
-
-        // Detect if it's a full public URL (Legacy) or Relative Path (New)
-        if (filter_var($path, FILTER_VALIDATE_URL)) {
-             // It's a URL. It might be on the Public Bucket (old uploads).
-             // Strategy: Redirect to public URL? Or try to serve it?
-             // Since legacy files are on Public Bucket, we can just redirect or return URL.
-             // But if specific requirement is "Attachment Private", we should ideally migrate them.
-             // For now, if it's a URL, we assume it's public and redirect.
-             return redirect($path);
-        }
-
-        // It is a relative path intended for Private Bucket
-        if (!Storage::disk($disk)->exists($path)) {
-            abort(404, 'File not found on secure storage.');
-        }
-
-        return Storage::disk($disk)->download($path, $attachment->file_name);
     }
 }
