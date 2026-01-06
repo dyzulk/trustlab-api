@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\CaCertificate;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class OpenSslService
@@ -58,7 +59,7 @@ class OpenSslService
                 ? $this->formatHex($rootDetails['serialNumberHex'])
                 : $this->formatSerialToHex($rootDetails['serialNumber']);
 
-            CaCertificate::create([
+            $ca = CaCertificate::create([
                 'ca_type' => 'root',
                 'cert_content' => $rootCertPem,
                 'key_content' => $rootKeyPem,
@@ -68,6 +69,8 @@ class OpenSslService
                 'valid_from' => date('Y-m-d H:i:s', $rootDetails['validFrom_time_t']),
                 'valid_to' => date('Y-m-d H:i:s', $rootDetails['validTo_time_t']),
             ]);
+
+            $this->uploadToCdn($ca);
 
             // Intermediate CA 4096-bit
             $int4096Key = openssl_pkey_new([
@@ -95,7 +98,7 @@ class OpenSslService
                 ? $this->formatHex($int4096Details['serialNumberHex'])
                 : $this->formatSerialToHex($int4096Details['serialNumber']);
 
-            CaCertificate::create([
+            $ca4096 = CaCertificate::create([
                 'ca_type' => 'intermediate_4096', 
                 'cert_content' => $int4096CertPem, 
                 'key_content' => $int4096KeyPem,
@@ -105,6 +108,8 @@ class OpenSslService
                 'valid_from' => date('Y-m-d H:i:s', $int4096Details['validFrom_time_t']),
                 'valid_to' => date('Y-m-d H:i:s', $int4096Details['validTo_time_t']),
             ]);
+
+            $this->uploadToCdn($ca4096);
 
             // Intermediate CA 2048-bit
             $int2048Key = openssl_pkey_new([
@@ -132,7 +137,7 @@ class OpenSslService
                 ? $this->formatHex($int2048Details['serialNumberHex'])
                 : $this->formatSerialToHex($int2048Details['serialNumber']);
 
-            CaCertificate::create([
+            $ca2048 = CaCertificate::create([
                 'ca_type' => 'intermediate_2048', 
                 'cert_content' => $int2048CertPem, 
                 'key_content' => $int2048KeyPem,
@@ -142,6 +147,8 @@ class OpenSslService
                 'valid_from' => date('Y-m-d H:i:s', $int2048Details['validFrom_time_t']),
                 'valid_to' => date('Y-m-d H:i:s', $int2048Details['validTo_time_t']),
             ]);
+
+            $this->uploadToCdn($ca2048);
 
             return true;
         } finally {
@@ -402,6 +409,30 @@ class OpenSslService
 
         } finally {
             if ($configFile && file_exists($configFile)) unlink($configFile);
+        }
+    }
+    /**
+     * Upload CA certificate (public) to R2 CDN.
+     */
+    public function uploadToCdn(CaCertificate $cert)
+    {
+        try {
+            $filename = 'ca/' . Str::slug($cert->common_name) . '-' . $cert->uuid . '.crt';
+            
+            Storage::disk('r2-public')->put($filename, $cert->cert_content, [
+                'visibility' => 'public',
+                'ContentType' => 'application/x-x509-ca-cert'
+            ]);
+
+            $cert->update([
+                'cert_path' => $filename,
+                'last_synced_at' => now()
+            ]);
+
+            return true;
+        } catch (\Exception $e) {
+            \Log::error("Failed to upload CA to R2: " . $e->getMessage());
+            return false;
         }
     }
 }

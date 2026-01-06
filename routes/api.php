@@ -59,6 +59,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
         // Root CA Management (Admin Only)
         Route::get('/admin/ca-certificates', [RootCaApiController::class, 'index']);
+        Route::post('/admin/ca-certificates/sync-cdn', [RootCaApiController::class, 'syncToCdn']);
         Route::post('/admin/ca-certificates/{certificate}/renew', [RootCaApiController::class, 'renew']);
 
         // API Keys Management

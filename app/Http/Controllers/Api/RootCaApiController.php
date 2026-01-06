@@ -60,6 +60,32 @@ class RootCaApiController extends Controller
         }
     }
 
+    public function syncToCdn()
+    {
+        $this->authorizeAdminOrOwner();
+
+        try {
+            $certificates = CaCertificate::all();
+            $count = 0;
+
+            foreach ($certificates as $cert) {
+                if ($this->sslService->uploadToCdn($cert)) {
+                    $count++;
+                }
+            }
+
+            return response()->json([
+                'status' => 'success',
+                'message' => "Successfully synced {$count} certificates to CDN."
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Sync failed: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
     protected function authorizeAdminOrOwner()
     {
         if (!auth()->user()->isAdminOrOwner()) {
