@@ -497,7 +497,7 @@ class OpenSslService
     public function generateLinuxInstaller(CaCertificate $cert): string
     {
         $cdnUrl = $cert->cert_path ? Storage::disk('r2-public')->url($cert->cert_path) : url("/api/public/ca/{$cert->uuid}/download/pem");
-        $filename = Str::slug($cert->common_name) . ".crt";
+        $filename = "trustlab-" . Str::slug($cert->common_name) . ".crt";
 
         return "#!/bin/bash\n" .
                "echo \"TrustLab - Installing CA Certificate: {$cert->common_name}\"\n" .
@@ -645,13 +645,15 @@ class OpenSslService
                      "else\n" .
                      "  echo \"Unsupported Linux distribution for automatic install.\"\n" .
                      "  exit 1\n" .
-                     "fi\n\n";
+                     "fi\n\n" .
+                     "echo \"Cleaning up old TrustLab certificates...\"\n" .
+                     "rm -f \"\$TARGET_DIR/trustlab-*.crt\"\n\n";
         
         foreach ($certificates as $cert) {
             $cdnUrl = $cert->cert_path ? Storage::disk('r2-public')->url($cert->cert_path) : null;
             if (!$cdnUrl) continue;
             
-            $filename = Str::slug($cert->common_name) . ".crt";
+            $filename = "trustlab-" . Str::slug($cert->common_name) . ".crt";
             $shContent .= "echo \"Downloading and deploying {$cert->common_name}...\"\n" .
                           "curl -sL \"{$cdnUrl}\" -o \"\$TARGET_DIR/{$filename}\"\n";
         }
@@ -678,9 +680,9 @@ class OpenSslService
             
             $store = $cert->ca_type === 'root' ? 'Root' : 'CA';
             $batContent .= "echo Installing {$cert->common_name} to {$store} store...\n" .
-                           "curl -sL \"{$cdnUrl}\" -o \"%TEMP%\\tl-{$cert->uuid}.crt\"\n" .
-                           "certutil -addstore -f \"{$store}\" \"%TEMP%\\tl-{$cert->uuid}.crt\"\n" .
-                           "del \"%TEMP%\\tl-{$cert->uuid}.crt\"\n";
+                           "curl -sL \"{$cdnUrl}\" -o \"%TEMP%\\trustlab-{$cert->uuid}.crt\"\n" .
+                           "certutil -addstore -f \"{$store}\" \"%TEMP%\\trustlab-{$cert->uuid}.crt\"\n" .
+                           "del \"%TEMP%\\trustlab-{$cert->uuid}.crt\"\n";
         }
         $batContent .= "echo Installation Complete.\npause";
 
