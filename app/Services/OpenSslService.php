@@ -624,25 +624,36 @@ class OpenSslService
         // 1. Linux Bundle (.sh)
         $shContent = "#!/bin/bash\n" .
                      "echo \"TrustLab - Installing all CA Certificates...\"\n" .
-                     "if [ \"\$EUID\" -ne 0 ]; then echo \"Please run as root (sudo)\"; exit 1; fi\n";
+                     "if [ \"\$EUID\" -ne 0 ]; then echo \"Please run as root (sudo)\"; exit 1; fi\n\n" .
+                     "# OS Detection\n" .
+                     "TARGET_DIR=\"\"\n" .
+                     "UPDATE_CMD=\"\"\n\n" .
+                     "if [ -d /usr/local/share/ca-certificates ]; then\n" .
+                     "  TARGET_DIR=\"/usr/local/share/ca-certificates\"\n" .
+                     "  UPDATE_CMD=\"update-ca-certificates\"\n" .
+                     "elif [ -d /etc/pki/ca-trust/source/anchors ]; then\n" .
+                     "  TARGET_DIR=\"/etc/pki/ca-trust/source/anchors\"\n" .
+                     "  UPDATE_CMD=\"update-ca-trust extract\"\n" .
+                     "elif [ -d /etc/ca-certificates/trust-source/anchors ]; then\n" .
+                     "  TARGET_DIR=\"/etc/ca-certificates/trust-source/anchors\"\n" .
+                     "  UPDATE_CMD=\"trust extract-compat\"\n" .
+                     "else\n" .
+                     "  echo \"Unsupported Linux distribution for automatic install.\"\n" .
+                     "  exit 1\n" .
+                     "fi\n\n";
         
         foreach ($certificates as $cert) {
             $cdnUrl = $cert->cert_path ? Storage::disk('r2-public')->url($cert->cert_path) : null;
             if (!$cdnUrl) continue;
             
             $filename = Str::slug($cert->common_name) . ".crt";
-            $shContent .= "echo \"Downloading {$cert->common_name}...\"\n" .
-                          "curl -sL \"{$cdnUrl}\" -o \"/tmp/{$filename}\"\n" .
-                          "if [ -d /usr/local/share/ca-certificates ]; then cp \"/tmp/{$filename}\" \"/usr/local/share/ca-certificates/\"; fi\n" .
-                          "if [ -d /etc/pki/ca-trust/source/anchors ]; then cp \"/tmp/{$filename}\" \"/etc/pki/ca-trust/source/anchors/\"; fi\n" .
-                          "if [ -d /etc/ca-certificates/trust-source/anchors ]; then cp \"/tmp/{$filename}\" \"/etc/ca-certificates/trust-source/anchors/\"; fi\n";
+            $shContent .= "echo \"Downloading and deploying {$cert->common_name}...\"\n" .
+                          "curl -sL \"{$cdnUrl}\" -o \"\$TARGET_DIR/{$filename}\"\n";
         }
-
-        $shContent .= "echo \"Updating CA store...\"\n" .
-                      "if command -v update-ca-certificates >/dev/null; then update-ca-certificates; fi\n" .
-                      "if command -v update-ca-trust >/dev/null; then update-ca-trust extract; fi\n" .
-                      "if command -v trust >/dev/null; then trust extract-compat; fi\n" .
-                      "echo \"All certificates installed.\"\n";
+        
+        $shContent .= "\necho \"Finalizing installation with: \$UPDATE_CMD\"\n" .
+                      "\$UPDATE_CMD\n" .
+                      "echo \"All certificates installed successfully.\"\n";
 
         Storage::disk('r2-public')->put('ca/bundles/trustlab-all.sh', $shContent, [
             'visibility' => 'public',
