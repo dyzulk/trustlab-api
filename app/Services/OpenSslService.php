@@ -416,12 +416,12 @@ class OpenSslService
      */
     public function generateWindowsInstaller(CaCertificate $cert): string
     {
-        $cdnUrl = $this->getPublicKeyCdnUrl($cert, 'cer'); // Windows prefer .cer (DER or PEM)
-        // Note: certutil can import PEM/CRT as well. We'll use the .crt (PEM) from CDN.
         $cdnUrl = $cert->cert_path ? Storage::disk('r2-public')->url($cert->cert_path) : url("/api/public/ca/{$cert->uuid}/download/pem");
+        $typeLabel = $cert->ca_type === 'root' ? 'Root' : 'Intermediate';
+        $store = $cert->ca_type === 'root' ? 'Root' : 'CA';
 
         return "@echo off\n" .
-               "echo TrustLab - Installing Certificate: {$cert->common_name}\n" .
+               "echo TrustLab - Installing {$typeLabel} CA Certificate: {$cert->common_name}\n" .
                "set \"TEMP_CERT=%TEMP%\\trustlab-ca-{$cert->uuid}.crt\"\n" .
                "curl -sL \"{$cdnUrl}\" -o \"%TEMP_CERT%\"\n" .
                "if %ERRORLEVEL% NEQ 0 (\n" .
@@ -429,7 +429,7 @@ class OpenSslService
                "    pause\n" .
                "    exit /b 1\n" .
                ")\n" .
-               "certutil -addstore -f \"Root\" \"%TEMP_CERT%\"\n" .
+               "certutil -addstore -f \"{$store}\" \"%TEMP_CERT%\"\n" .
                "del \"%TEMP_CERT%\"\n" .
                "echo Installation Complete.\n" .
                "pause";
@@ -444,6 +444,9 @@ class OpenSslService
         $payloadId = "com.trustlab.ca." . Str::slug($cert->common_name);
         $uuid1 = Str::uuid()->toString();
         $uuid2 = Str::uuid()->toString();
+        
+        // Root CAs use 'com.apple.security.root', Intermediate CAs use 'com.apple.security.pkcs1' (intermediate)
+        $payloadType = $cert->ca_type === 'root' ? 'com.apple.security.root' : 'com.apple.security.pkcs1';
 
         return "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" .
                "<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n" .
@@ -463,7 +466,7 @@ class OpenSslService
                "            <key>PayloadIdentifier</key>\n" .
                "            <string>{$payloadId}.cert</string>\n" .
                "            <key>PayloadType</key>\n" .
-               "            <string>com.apple.security.root</string>\n" .
+               "            <string>{$payloadType}</string>\n" .
                "            <key>PayloadUUID</key>\n" .
                "            <string>{$uuid2}</string>\n" .
                "            <key>PayloadVersion</key>\n" .
@@ -471,7 +474,7 @@ class OpenSslService
                "        </dict>\n" .
                "    </array>\n" .
                "    <key>PayloadDescription</key>\n" .
-               "    <string>TrustLab CA Root Installation</string>\n" .
+               "    <string>TrustLab CA Installation</string>\n" .
                "    <key>PayloadDisplayName</key>\n" .
                "    <string>TrustLab CA: {$cert->common_name}</string>\n" .
                "    <key>PayloadIdentifier</key>\n" .
@@ -523,76 +526,222 @@ class OpenSslService
                "echo \"Installation Complete.\"\n";
     }
 
-    private function getPublicKeyCdnUrl(CaCertificate $cert, $ext)
+    /**
+     * Upload only PEM/DER (The CRT files) to CDN.
+     */
+    public function uploadPublicCertsOnly(CaCertificate $cert)
     {
-        $path = $ext === 'der' ? $cert->der_path : $cert->cert_path;
-        return $path ? Storage::disk('r2-public')->url($path) : null;
+        $baseFilename = 'ca/' . Str::slug($cert->common_name) . '-' . $cert->uuid;
+        $pemFilename = $baseFilename . '.crt';
+        $derFilename = $baseFilename . '.der';
+
+        // 1. Upload PEM (.crt)
+        Storage::disk('r2-public')->put($pemFilename, $cert->cert_content, [
+            'visibility' => 'public',
+            'ContentType' => 'application/x-x509-ca-cert'
+        ]);
+
+        // 2. Convert to DER and Upload (.der)
+        $lines = explode("\n", trim($cert->cert_content));
+        $payload = '';
+        foreach ($lines as $line) {
+            if (!str_starts_with($line, '-----')) {
+                $payload .= trim($line);
+            }
+        }
+        $derContent = base64_decode($payload);
+        
+        Storage::disk('r2-public')->put($derFilename, $derContent, [
+            'visibility' => 'public',
+            'ContentType' => 'application/x-x509-ca-cert'
+        ]);
+
+        $cert->update([
+            'cert_path' => $pemFilename,
+            'der_path' => $derFilename,
+            'last_synced_at' => now()
+        ]);
+
+        return true;
     }
 
     /**
-     * Upload CA certificate (public) to R2 CDN in 5 formats.
+     * Upload individual installers (SH, BAT, MAC) to CDN.
+     */
+    public function uploadIndividualInstallersOnly(CaCertificate $cert)
+    {
+        $baseFilename = 'ca/' . Str::slug($cert->common_name) . '-' . $cert->uuid;
+        $batFilename = $baseFilename . '.bat';
+        $macFilename = $baseFilename . '.mobileconfig';
+        $linuxFilename = $baseFilename . '.sh';
+        
+        $cacheControl = 'no-cache, no-store, must-revalidate';
+
+        // 3. Generate and Upload Windows Installer (.bat)
+        $batContent = $this->generateWindowsInstaller($cert);
+        Storage::disk('r2-public')->put($batFilename, $batContent, [
+            'visibility' => 'public',
+            'ContentType' => 'application/x-msdos-program',
+            'CacheControl' => $cacheControl
+        ]);
+
+        // 4. Generate and Upload macOS Profile (.mobileconfig)
+        $macContent = $this->generateMacInstaller($cert);
+        Storage::disk('r2-public')->put($macFilename, $macContent, [
+            'visibility' => 'public',
+            'ContentType' => 'application/x-apple-aspen-config',
+            'CacheControl' => $cacheControl
+        ]);
+
+        // 5. Generate and Upload Linux Script (.sh)
+        $linuxContent = $this->generateLinuxInstaller($cert);
+        Storage::disk('r2-public')->put($linuxFilename, $linuxContent, [
+            'visibility' => 'public',
+            'ContentType' => 'application/x-sh',
+            'CacheControl' => $cacheControl
+        ]);
+
+        $cert->update([
+            'bat_path' => $batFilename,
+            'mac_path' => $macFilename,
+            'linux_path' => $linuxFilename,
+            'last_synced_at' => now()
+        ]);
+
+        return true;
+    }
+
+    /**
+     * Generate Global Bundles (Installer Sapujagat)
+     */
+    public function syncAllBundles()
+    {
+        $certificates = CaCertificate::all();
+        if ($certificates->isEmpty()) return false;
+
+        $cacheControl = 'no-cache, no-store, must-revalidate';
+
+        // 1. Linux Bundle (.sh)
+        $shContent = "#!/bin/bash\n" .
+                     "echo \"TrustLab - Installing all CA Certificates...\"\n" .
+                     "if [ \"\$EUID\" -ne 0 ]; then echo \"Please run as root (sudo)\"; exit 1; fi\n";
+        
+        foreach ($certificates as $cert) {
+            $cdnUrl = $cert->cert_path ? Storage::disk('r2-public')->url($cert->cert_path) : null;
+            if (!$cdnUrl) continue;
+            
+            $filename = Str::slug($cert->common_name) . ".crt";
+            $shContent .= "echo \"Downloading {$cert->common_name}...\"\n" .
+                          "curl -sL \"{$cdnUrl}\" -o \"/tmp/{$filename}\"\n" .
+                          "if [ -d /usr/local/share/ca-certificates ]; then cp \"/tmp/{$filename}\" \"/usr/local/share/ca-certificates/\"; fi\n" .
+                          "if [ -d /etc/pki/ca-trust/source/anchors ]; then cp \"/tmp/{$filename}\" \"/etc/pki/ca-trust/source/anchors/\"; fi\n" .
+                          "if [ -d /etc/ca-certificates/trust-source/anchors ]; then cp \"/tmp/{$filename}\" \"/etc/ca-certificates/trust-source/anchors/\"; fi\n";
+        }
+
+        $shContent .= "echo \"Updating CA store...\"\n" .
+                      "if command -v update-ca-certificates >/dev/null; then update-ca-certificates; fi\n" .
+                      "if command -v update-ca-trust >/dev/null; then update-ca-trust extract; fi\n" .
+                      "if command -v trust >/dev/null; then trust extract-compat; fi\n" .
+                      "echo \"All certificates installed.\"\n";
+
+        Storage::disk('r2-public')->put('ca/bundles/trustlab-all.sh', $shContent, [
+            'visibility' => 'public',
+            'ContentType' => 'application/x-sh',
+            'CacheControl' => $cacheControl
+        ]);
+
+        // 2. Windows Bundle (.bat)
+        $batContent = "@echo off\n" .
+                      "echo TrustLab - Installing all CA Certificates...\n";
+        
+        foreach ($certificates as $cert) {
+            $cdnUrl = $cert->cert_path ? Storage::disk('r2-public')->url($cert->cert_path) : null;
+            if (!$cdnUrl) continue;
+            
+            $store = $cert->ca_type === 'root' ? 'Root' : 'CA';
+            $batContent .= "echo Installing {$cert->common_name} to {$store} store...\n" .
+                           "curl -sL \"{$cdnUrl}\" -o \"%TEMP%\\tl-{$cert->uuid}.crt\"\n" .
+                           "certutil -addstore -f \"{$store}\" \"%TEMP%\\tl-{$cert->uuid}.crt\"\n" .
+                           "del \"%TEMP%\\tl-{$cert->uuid}.crt\"\n";
+        }
+        $batContent .= "echo Installation Complete.\npause";
+
+        Storage::disk('r2-public')->put('ca/bundles/trustlab-all.bat', $batContent, [
+            'visibility' => 'public',
+            'ContentType' => 'application/x-msdos-program',
+            'CacheControl' => $cacheControl
+        ]);
+
+        // 3. macOS Bundle (.mobileconfig)
+        $uuid1 = Str::uuid()->toString();
+        $payloadContent = "";
+        
+        foreach ($certificates as $cert) {
+            $certBase64 = base64_encode($cert->cert_content);
+            $uuidSub = Str::uuid()->toString();
+            $payloadType = $cert->ca_type === 'root' ? 'com.apple.security.root' : 'com.apple.security.pkcs1';
+            
+            $payloadContent .= "        <dict>\n" .
+                               "            <key>PayloadCertificateFileName</key>\n" .
+                               "            <string>{$cert->common_name}.crt</string>\n" .
+                               "            <key>PayloadContent</key>\n" .
+                               "            <data>{$certBase64}</data>\n" .
+                               "            <key>PayloadDescription</key>\n" .
+                               "            <string>TrustLab CA Certificate</string>\n" .
+                               "            <key>PayloadDisplayName</key>\n" .
+                               "            <string>{$cert->common_name}</string>\n" .
+                               "            <key>PayloadIdentifier</key>\n" .
+                               "            <string>com.trustlab.bundle.{$cert->uuid}</string>\n" .
+                               "            <key>PayloadType</key>\n" .
+                               "            <string>{$payloadType}</string>\n" .
+                               "            <key>PayloadUUID</key>\n" .
+                               "            <string>{$uuidSub}</string>\n" .
+                               "            <key>PayloadVersion</key>\n" .
+                               "            <integer>1</integer>\n" .
+                               "        </dict>\n";
+        }
+
+        $macContent = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" .
+                      "<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n" .
+                      "<plist version=\"1.0\">\n" .
+                      "<dict>\n" .
+                      "    <key>PayloadContent</key>\n" .
+                      "    <array>\n" . $payloadContent . "    </array>\n" .
+                      "    <key>PayloadDescription</key>\n" .
+                      "    <string>TrustLab All-in-One CA Bundle</string>\n" .
+                      "    <key>PayloadDisplayName</key>\n" .
+                      "    <string>TrustLab CA Bundle</string>\n" .
+                      "    <key>PayloadIdentifier</key>\n" .
+                      "    <string>com.trustlab.ca.bundle</string>\n" .
+                      "    <key>PayloadRemovalDisallowed</key>\n" .
+                      "    <false/>\n" .
+                      "    <key>PayloadType</key>\n" .
+                      "    <string>Configuration</string>\n" .
+                      "    <key>PayloadUUID</key>\n" .
+                      "    <string>{$uuid1}</string>\n" .
+                      "    <key>PayloadVersion</key>\n" .
+                      "    <integer>1</integer>\n" .
+                      "</dict>\n" .
+                      "</plist>";
+
+        Storage::disk('r2-public')->put('ca/bundles/trustlab-all.mobileconfig', $macContent, [
+            'visibility' => 'public',
+            'ContentType' => 'application/x-apple-aspen-config',
+            'CacheControl' => $cacheControl
+        ]);
+
+        return true;
+    }
+
+    /**
+     * Legacy/Full Upload (Uploads everything)
      */
     public function uploadToCdn(CaCertificate $cert)
     {
         try {
-            $baseFilename = 'ca/' . Str::slug($cert->common_name) . '-' . $cert->uuid;
-            $pemFilename = $baseFilename . '.crt';
-            $derFilename = $baseFilename . '.der';
-            $batFilename = $baseFilename . '.bat';
-            $macFilename = $baseFilename . '.mobileconfig';
-            $linuxFilename = $baseFilename . '.sh';
-            
-            // 1. Upload PEM (.crt)
-            Storage::disk('r2-public')->put($pemFilename, $cert->cert_content, [
-                'visibility' => 'public',
-                'ContentType' => 'application/x-x509-ca-cert'
-            ]);
-
-            // 2. Convert to DER and Upload (.der)
-            $lines = explode("\n", trim($cert->cert_content));
-            $payload = '';
-            foreach ($lines as $line) {
-                if (!str_starts_with($line, '-----')) {
-                    $payload .= trim($line);
-                }
-            }
-            $derContent = base64_decode($payload);
-            
-            Storage::disk('r2-public')->put($derFilename, $derContent, [
-                'visibility' => 'public',
-                'ContentType' => 'application/x-x509-ca-cert'
-            ]);
-
-            // 3. Generate and Upload Windows Installer (.bat)
-            $batContent = $this->generateWindowsInstaller($cert);
-            Storage::disk('r2-public')->put($batFilename, $batContent, [
-                'visibility' => 'public',
-                'ContentType' => 'application/x-msdos-program'
-            ]);
-
-            // 4. Generate and Upload macOS Profile (.mobileconfig)
-            $macContent = $this->generateMacInstaller($cert);
-            Storage::disk('r2-public')->put($macFilename, $macContent, [
-                'visibility' => 'public',
-                'ContentType' => 'application/x-apple-aspen-config'
-            ]);
-
-            // 5. Generate and Upload Linux Script (.sh)
-            $linuxContent = $this->generateLinuxInstaller($cert);
-            Storage::disk('r2-public')->put($linuxFilename, $linuxContent, [
-                'visibility' => 'public',
-                'ContentType' => 'application/x-sh'
-            ]);
-
-            $cert->update([
-                'cert_path' => $pemFilename,
-                'der_path' => $derFilename,
-                'bat_path' => $batFilename,
-                'mac_path' => $macFilename,
-                'linux_path' => $linuxFilename,
-                'last_synced_at' => now()
-            ]);
-
+            $this->uploadPublicCertsOnly($cert);
+            $this->uploadIndividualInstallersOnly($cert);
+            $this->syncAllBundles();
             return true;
         } catch (\Exception $e) {
             \Log::error("Failed to upload CA to R2: " . $e->getMessage());

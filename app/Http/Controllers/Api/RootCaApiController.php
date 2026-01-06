@@ -60,6 +60,53 @@ class RootCaApiController extends Controller
         }
     }
 
+    public function syncCrtOnly()
+    {
+        $this->authorizeAdminOrOwner();
+        try {
+            $certificates = CaCertificate::all();
+            $count = 0;
+            foreach ($certificates as $cert) {
+                if ($this->sslService->uploadPublicCertsOnly($cert)) {
+                    $count++;
+                }
+            }
+            return response()->json(['status' => 'success', 'message' => "Successfully synced {$count} CRT files."]);
+        } catch (\Exception $e) {
+            return response()->json(['status' => 'error', 'message' => 'Sync failed: ' . $e->getMessage()], 500);
+        }
+    }
+
+    public function syncInstallersOnly()
+    {
+        $this->authorizeAdminOrOwner();
+        try {
+            $certificates = CaCertificate::all();
+            $count = 0;
+            foreach ($certificates as $cert) {
+                if ($this->sslService->uploadIndividualInstallersOnly($cert)) {
+                    $count++;
+                }
+            }
+            return response()->json(['status' => 'success', 'message' => "Successfully synced {$count} installer sets."]);
+        } catch (\Exception $e) {
+            return response()->json(['status' => 'error', 'message' => 'Sync failed: ' . $e->getMessage()], 500);
+        }
+    }
+
+    public function syncBundlesOnly()
+    {
+        $this->authorizeAdminOrOwner();
+        try {
+            if ($this->sslService->syncAllBundles()) {
+                return response()->json(['status' => 'success', 'message' => "Successfully synced All-in-One bundles."]);
+            }
+            return response()->json(['status' => 'error', 'message' => 'No certificates found to bundle.'], 404);
+        } catch (\Exception $e) {
+            return response()->json(['status' => 'error', 'message' => 'Sync failed: ' . $e->getMessage()], 500);
+        }
+    }
+
     public function syncToCdn()
     {
         $this->authorizeAdminOrOwner();
@@ -76,7 +123,7 @@ class RootCaApiController extends Controller
 
             return response()->json([
                 'status' => 'success',
-                'message' => "Successfully synced {$count} certificates to CDN."
+                'message' => "Successfully synced everything ({$count} certs + bundles) to CDN."
             ]);
         } catch (\Exception $e) {
             return response()->json([

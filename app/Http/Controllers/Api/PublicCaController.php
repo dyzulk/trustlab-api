@@ -37,7 +37,12 @@ class PublicCaController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $certificates
+            'data' => $certificates,
+            'bundle_urls' => [
+                'linux' => Storage::disk('r2-public')->url('ca/bundles/trustlab-all.sh'),
+                'windows' => Storage::disk('r2-public')->url('ca/bundles/trustlab-all.bat'),
+                'macos' => Storage::disk('r2-public')->url('ca/bundles/trustlab-all.mobileconfig'),
+            ]
         ]);
     }
 
