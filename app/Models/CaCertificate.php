@@ -24,6 +24,7 @@ class CaCertificate extends Model
         'valid_from',
         'valid_to',
         'cert_path',
+        'der_path',
         'last_synced_at',
         'download_count',
         'last_downloaded_at'

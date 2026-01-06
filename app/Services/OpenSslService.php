@@ -412,20 +412,39 @@ class OpenSslService
         }
     }
     /**
-     * Upload CA certificate (public) to R2 CDN.
+     * Upload CA certificate (public) to R2 CDN in both PEM and DER formats.
      */
     public function uploadToCdn(CaCertificate $cert)
     {
         try {
-            $filename = 'ca/' . Str::slug($cert->common_name) . '-' . $cert->uuid . '.crt';
+            $baseFilename = 'ca/' . Str::slug($cert->common_name) . '-' . $cert->uuid;
+            $pemFilename = $baseFilename . '.crt';
+            $derFilename = $baseFilename . '.der';
             
-            Storage::disk('r2-public')->put($filename, $cert->cert_content, [
+            // 1. Upload PEM (.crt)
+            Storage::disk('r2-public')->put($pemFilename, $cert->cert_content, [
+                'visibility' => 'public',
+                'ContentType' => 'application/x-x509-ca-cert'
+            ]);
+
+            // 2. Convert to DER and Upload (.der)
+            $lines = explode("\n", trim($cert->cert_content));
+            $payload = '';
+            foreach ($lines as $line) {
+                if (!str_starts_with($line, '-----')) {
+                    $payload .= trim($line);
+                }
+            }
+            $derContent = base64_decode($payload);
+            
+            Storage::disk('r2-public')->put($derFilename, $derContent, [
                 'visibility' => 'public',
                 'ContentType' => 'application/x-x509-ca-cert'
             ]);
 
             $cert->update([
-                'cert_path' => $filename,
+                'cert_path' => $pemFilename,
+                'der_path' => $derFilename,
                 'last_synced_at' => now()
             ]);
 

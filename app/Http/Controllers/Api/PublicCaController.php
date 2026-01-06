@@ -27,6 +27,7 @@ class PublicCaController extends Controller
                     'serial' => $cert->serial_number,
                     'expires_at' => $cert->valid_to->toIso8601String(),
                     'cdn_url' => $cert->cert_path ? Storage::disk('r2-public')->url($cert->cert_path) : null,
+                    'der_cdn_url' => $cert->der_path ? Storage::disk('r2-public')->url($cert->der_path) : null,
                 ];
             });
 
@@ -52,6 +53,11 @@ class PublicCaController extends Controller
         }
 
         if ($format === 'der') {
+            // Redirect to CDN if path exists and format is DER
+            if ($cert->der_path) {
+                return redirect()->away(Storage::disk('r2-public')->url($cert->der_path));
+            }
+
             // Convert PEM to DER (Base64 decode the body)
             $pem = $cert->cert_content;
             $lines = explode("\n", trim($pem));
