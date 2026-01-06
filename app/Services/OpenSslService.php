@@ -377,8 +377,16 @@ class OpenSslService
                 $issuerCert = null; 
                 $issuerKey = $privKey;
             } else {
-                // Intermediate is signed by Root
-                $root = CaCertificate::where('ca_type', 'root')->first();
+                // Intermediate is signed by the LATEST Root
+                $root = CaCertificate::where('ca_type', 'root')
+                    ->where('is_latest', true)
+                    ->first();
+                
+                // Fallback if no is_latest yet (during initial setuptransition)
+                if (!$root) {
+                    $root = CaCertificate::where('ca_type', 'root')->latest()->first();
+                }
+
                 if (!$root) throw new \Exception('Root CA not found for signing intermediate renewal.');
                 $issuerCert = $root->cert_content;
                 $issuerKey = openssl_pkey_get_private($root->key_content);
@@ -414,6 +422,67 @@ class OpenSslService
             if ($configFile && file_exists($configFile)) unlink($configFile);
         }
     }
+
+    /**
+     * Perform a coordinated renewal of the entire CA chain.
+     * Order: Root -> Intermediates.
+     */
+    public function bulkRenewStrategy(int $days = 3650)
+    {
+        // 1. Get current latest Root
+        $root = CaCertificate::where('ca_type', 'root')->where('is_latest', true)->first();
+        if (!$root) throw new \Exception("Current Root CA not found.");
+
+        // 2. Renew Root
+        $newRoot = $this->executeRenewalFlow($root, $days);
+
+        // 3. Renew Intermediates using the NEW Root
+        $intermediates = CaCertificate::whereIn('ca_type', ['intermediate_2048', 'intermediate_4096'])
+            ->where('is_latest', true)
+            ->get();
+
+        foreach ($intermediates as $int) {
+            $this->executeRenewalFlow($int, $days);
+        }
+
+        // 4. Final Mass Sync
+        $this->syncAllBundles();
+        
+        return true;
+    }
+
+    /**
+     * Internal helper to handle the DB + CDN flow for a single renewal.
+     */
+    private function executeRenewalFlow(CaCertificate $cert, int $days)
+    {
+        $newData = $this->renewCaCertificate($cert, $days);
+
+        // Unset latest for others of same type/CN
+        CaCertificate::where('ca_type', $cert->ca_type)
+            ->where('common_name', $cert->common_name)
+            ->update(['is_latest' => false]);
+
+        // Create new
+        $newCert = CaCertificate::create([
+            'ca_type' => $cert->ca_type,
+            'common_name' => $cert->common_name,
+            'organization' => $cert->organization,
+            'key_content' => $cert->key_content,
+            'cert_content' => $newData['cert_content'],
+            'serial_number' => $newData['serial_number'],
+            'valid_from' => $newData['valid_from'],
+            'valid_to' => $newData['valid_to'],
+            'is_latest' => true,
+        ]);
+
+        // Sync to CDN
+        $this->uploadPublicCertsOnly($newCert, 'both');
+        $this->uploadIndividualInstallersOnly($newCert, 'both');
+
+        return $newCert;
+    }
+
     /**
      * Generate Windows Installer (.bat)
      */

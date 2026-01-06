@@ -78,6 +78,25 @@ class RootCaApiController extends Controller
         }
     }
 
+    public function renewAll(Request $request)
+    {
+        $this->authorizeAdminOrOwner();
+        $days = (int) $request->input('days', 3650);
+
+        try {
+            $this->sslService->bulkRenewStrategy($days);
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Entire CA Chain (Root & Intermediates) renewed successfully.'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Bulk renewal failed: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
     public function syncCrtOnly(Request $request)
     {
         $this->authorizeAdminOrOwner();

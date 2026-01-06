@@ -65,6 +65,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::post('/admin/ca-certificates/sync-installers', [RootCaApiController::class, 'syncInstallersOnly']);
         Route::post('/admin/ca-certificates/sync-bundles', [RootCaApiController::class, 'syncBundlesOnly']);
         Route::post('/admin/ca-certificates/{certificate}/renew', [RootCaApiController::class, 'renew']);
+        Route::post('/admin/ca-certificates/renew-all', [RootCaApiController::class, 'renewAll']);
         Route::post('/admin/ca-certificates/{certificate}/promote', [RootCaApiController::class, 'promote']);
 
         // API Keys Management
