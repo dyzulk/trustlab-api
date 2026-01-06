@@ -2,8 +2,6 @@
 .DS_Store
 .env
 .env.backup
-.env.example.for.local
-.env.example.for.production
 .env.production.editable
 .env.production.soft.copy
 .phpactor.json
@@ -28,3 +26,4 @@ Thumbs.db
 *.sql
 *.sqlite
 .env.testing
+scripts/deploy-webhook.local.sh

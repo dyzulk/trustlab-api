@@ -11,6 +11,8 @@ class CaCertificate extends Model
     public $incrementing = false;
     protected $keyType = 'string';
 
+    protected $connection = 'mysql_ca';
+
     protected $fillable = [
         'uuid', 
         'ca_type', 
