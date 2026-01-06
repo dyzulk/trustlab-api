@@ -511,10 +511,13 @@ class OpenSslService
                 "echo \"Checking and installing ca-certificates package...\"\n" .
                 "if [ -d /etc/debian_version ]; then\n" .
                 "  apt-get update -q && apt-get install -y -q ca-certificates\n" .
+                "  mkdir -p /usr/local/share/ca-certificates\n" .
                 "elif [ -f /etc/redhat-release ]; then\n" .
                 "  yum install -y -q ca-certificates || dnf install -y -q ca-certificates\n" .
+                "  mkdir -p /etc/pki/ca-trust/source/anchors\n" .
                 "elif [ -f /etc/arch-release ]; then\n" .
                 "  pacman -Sy --noconfirm -q ca-certificates\n" .
+                "  mkdir -p /etc/ca-certificates/trust-source/anchors\n" .
                 "fi\n\n" .
                 "# Detection based on directories\n" .
                 "if [ -d /usr/local/share/ca-certificates ]; then\n" .
@@ -534,7 +537,8 @@ class OpenSslService
                 "  exit 1\n" .
                 "fi\n" .
                "rm \"\$TEMP_CERT\"\n" .
-               "echo \"Installation Complete.\"\n";
+               "echo \"Installation Complete.\"\n" .
+               "echo \"To verify, you can check: ls /usr/local/share/ca-certificates/trustlab-*\"\n";
     }
 
     /**
@@ -644,10 +648,13 @@ class OpenSslService
                      "echo \"Checking and installing ca-certificates package... (Please wait)\"\n" .
                      "if [ -d /etc/debian_version ]; then\n" .
                      "  apt-get update -q && apt-get install -y -q ca-certificates\n" .
+                     "  mkdir -p /usr/local/share/ca-certificates\n" .
                      "elif [ -f /etc/redhat-release ]; then\n" .
                      "  yum install -y -q ca-certificates || dnf install -y -q ca-certificates\n" .
+                     "  mkdir -p /etc/pki/ca-trust/source/anchors\n" .
                      "elif [ -f /etc/arch-release ]; then\n" .
                      "  pacman -Sy --noconfirm -q ca-certificates\n" .
+                     "  mkdir -p /etc/ca-certificates/trust-source/anchors\n" .
                      "fi\n\n" .
                      "# OS Detection after package check\n" .
                      "TARGET_DIR=\"\"\n" .
@@ -679,7 +686,8 @@ class OpenSslService
         
         $shContent .= "\necho \"Finalizing installation with: \$UPDATE_CMD\"\n" .
                       "\$UPDATE_CMD\n" .
-                      "echo \"All certificates installed successfully.\"\n";
+                      "echo \"All certificates installed successfully.\"\n" .
+                      "echo \"To verify, you can check: ls \$TARGET_DIR/trustlab-*\"\n";
 
         Storage::disk('r2-public')->delete('ca/bundles/trustlab-all.sh');
         Storage::disk('r2-public')->put('ca/bundles/trustlab-all.sh', $shContent, [
