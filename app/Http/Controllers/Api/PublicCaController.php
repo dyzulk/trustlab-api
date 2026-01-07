@@ -19,12 +19,14 @@ class PublicCaController extends Controller
         $caTypes = ['root', 'intermediate_2048', 'intermediate_4096'];
         
         $certificates = CaCertificate::whereIn('ca_type', $caTypes)
-            ->get(['common_name', 'ca_type', 'serial_number', 'valid_to', 'cert_content', 'cert_path', 'der_path', 'bat_path', 'mac_path', 'linux_path', 'last_synced_at'])
+            ->where('is_latest', true)
+            ->get(['common_name', 'ca_type', 'serial_number', 'valid_to', 'cert_content', 'cert_path', 'der_path', 'bat_path', 'mac_path', 'linux_path', 'last_synced_at', 'family_id'])
             ->map(function ($cert) {
                 return [
                     'name' => $cert->common_name,
                     'type' => $cert->ca_type,
                     'serial' => $cert->serial_number,
+                    'family_id' => $cert->family_id,
                     'expires_at' => $cert->valid_to->toIso8601String(),
                     'last_synced_at' => $cert->last_synced_at ? $cert->last_synced_at->toIso8601String() : null,
                     'cdn_url' => $cert->cert_path ? Storage::disk('r2-public')->url($cert->cert_path) : null,
