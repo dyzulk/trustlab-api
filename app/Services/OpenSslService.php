@@ -60,12 +60,16 @@ class OpenSslService
                 ? $this->formatHex($rootDetails['serialNumberHex'])
                 : $this->formatSerialToHex($rootDetails['serialNumber']);
 
+            $familyId = (string) Str::uuid();
             $ca = CaCertificate::create([
                 'ca_type' => 'root',
                 'cert_content' => $rootCertPem,
                 'key_content' => $rootKeyPem,
                 'serial_number' => $serialHex,
                 'common_name' => $rootDetails['subject']['CN'] ?? 'Root CA',
+                'issuer_name' => $rootDetails['subject']['CN'] ?? 'Root CA',
+                'issuer_serial' => $serialHex,
+                'family_id' => $familyId,
                 'organization' => $rootDetails['subject']['O'] ?? null,
                 'valid_from' => date('Y-m-d H:i:s', $rootDetails['validFrom_time_t']),
                 'valid_to' => date('Y-m-d H:i:s', $rootDetails['validTo_time_t']),
@@ -107,6 +111,9 @@ class OpenSslService
                 'key_content' => $int4096KeyPem,
                 'serial_number' => $serialHex4096,
                 'common_name' => $int4096Details['subject']['CN'] ?? 'Intermediate CA 4096',
+                'issuer_name' => $ca->common_name,
+                'issuer_serial' => $ca->serial_number,
+                'family_id' => $familyId,
                 'organization' => $int4096Details['subject']['O'] ?? null,
                 'valid_from' => date('Y-m-d H:i:s', $int4096Details['validFrom_time_t']),
                 'valid_to' => date('Y-m-d H:i:s', $int4096Details['validTo_time_t']),
@@ -147,6 +154,9 @@ class OpenSslService
                 'key_content' => $int2048KeyPem,
                 'serial_number' => $serialHex2048,
                 'common_name' => $int2048Details['subject']['CN'] ?? 'Intermediate CA 2048',
+                'issuer_name' => $ca->common_name,
+                'issuer_serial' => $ca->serial_number,
+                'family_id' => $familyId,
                 'organization' => $int2048Details['subject']['O'] ?? null,
                 'valid_from' => date('Y-m-d H:i:s', $int2048Details['validFrom_time_t']),
                 'valid_to' => date('Y-m-d H:i:s', $int2048Details['validTo_time_t']),
