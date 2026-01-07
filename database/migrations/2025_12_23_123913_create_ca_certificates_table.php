@@ -33,6 +33,7 @@ return new class extends Migration
                 $table->string('organization')->nullable();
                 $table->string('issuer_name')->nullable();
                 $table->string('issuer_serial')->nullable();
+                $table->string('family_id')->nullable();
                 $table->dateTime('valid_from')->nullable();
                 $table->dateTime('valid_to')->nullable();
                 
@@ -69,6 +70,9 @@ return new class extends Migration
                 }
                 if (!Schema::connection('mysql_ca')->hasColumn('ca_certificates', 'issuer_serial')) {
                     $table->string('issuer_serial')->nullable()->after('issuer_name');
+                }
+                if (!Schema::connection('mysql_ca')->hasColumn('ca_certificates', 'family_id')) {
+                    $table->string('family_id')->nullable()->after('issuer_serial');
                 }
             });
         }

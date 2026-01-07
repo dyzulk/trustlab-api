@@ -418,6 +418,7 @@ class OpenSslService
                 'valid_to' => date('Y-m-d H:i:s', $newInfo['validTo_time_t']),
                 'issuer_name' => $cert->ca_type === 'root' ? $cert->common_name : ($root ? $root->common_name : 'Unknown Root'),
                 'issuer_serial' => $cert->ca_type === 'root' ? $newSerialHex : ($root ? $root->serial_number : null),
+                'family_id' => $cert->ca_type === 'root' ? (string) \Illuminate\Support\Str::uuid() : ($root ? $root->family_id : $cert->family_id),
             ];
 
         } finally {
@@ -477,6 +478,7 @@ class OpenSslService
             'valid_to' => $newData['valid_to'],
             'issuer_name' => $newData['issuer_name'],
             'issuer_serial' => $newData['issuer_serial'],
+            'family_id' => $newData['family_id'],
             'is_latest' => true,
         ]);
 
