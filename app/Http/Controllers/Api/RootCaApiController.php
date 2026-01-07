@@ -38,32 +38,7 @@ class RootCaApiController extends Controller
         $days = (int) $request->input('days', 3650);
 
         try {
-            $newData = $this->sslService->renewCaCertificate($certificate, $days);
-
-            // 1. Unset 'is_latest' from all versions of this CA type/name
-            CaCertificate::where('ca_type', $certificate->ca_type)
-                ->where('common_name', $certificate->common_name)
-                ->update(['is_latest' => false]);
-
-            // 2. Create NEW version record
-            $newCertificate = CaCertificate::create([
-                'ca_type' => $certificate->ca_type,
-                'common_name' => $certificate->common_name,
-                'organization' => $certificate->organization,
-                'key_content' => $certificate->key_content, // Keep same private key for renewal
-                'cert_content' => $newData['cert_content'],
-                'serial_number' => $newData['serial_number'],
-                'valid_from' => $newData['valid_from'],
-                'valid_to' => $newData['valid_to'],
-                'is_latest' => true,
-            ]);
-
-            // 3. Automatically sync the new version to CDN (Both latest and archive locations)
-            $this->sslService->uploadPublicCertsOnly($newCertificate, 'both');
-            $this->sslService->uploadIndividualInstallersOnly($newCertificate, 'both');
-            
-            // 4. Update bundles
-            $this->sslService->syncAllBundles();
+            $newCertificate = $this->sslService->executeRenewalFlow($certificate, $days);
 
             return response()->json([
                 'status' => 'success',

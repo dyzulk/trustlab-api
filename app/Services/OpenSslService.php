@@ -416,6 +416,7 @@ class OpenSslService
                 'serial_number' => $newSerialHex,
                 'valid_from' => date('Y-m-d H:i:s', $newInfo['validFrom_time_t']),
                 'valid_to' => date('Y-m-d H:i:s', $newInfo['validTo_time_t']),
+                'issuer_name' => $cert->ca_type === 'root' ? 'Self-Signed' : ($root ? $root->common_name : 'Unknown Root'),
             ];
 
         } finally {
@@ -452,9 +453,9 @@ class OpenSslService
     }
 
     /**
-     * Internal helper to handle the DB + CDN flow for a single renewal.
+     * Handle the DB + CDN flow for a single renewal.
      */
-    private function executeRenewalFlow(CaCertificate $cert, int $days)
+    public function executeRenewalFlow(CaCertificate $cert, int $days)
     {
         $newData = $this->renewCaCertificate($cert, $days);
 
@@ -473,6 +474,7 @@ class OpenSslService
             'serial_number' => $newData['serial_number'],
             'valid_from' => $newData['valid_from'],
             'valid_to' => $newData['valid_to'],
+            'issuer_name' => $newData['issuer_name'],
             'is_latest' => true,
         ]);
 
