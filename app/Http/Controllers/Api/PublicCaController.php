@@ -104,28 +104,15 @@ class PublicCaController extends Controller
             return redirect()->away(Storage::disk('r2-public')->url($cert->bat_path));
         }
 
-        $store = $cert->ca_type === 'root' ? 'Root' : 'CA';
-        $filename = preg_replace('/[^a-zA-Z0-9_-]/', '_', $cert->common_name);
-        
-        // Convert CRLF to ensure batch file works
-        $certContent = str_replace("\n", "\r\n", str_replace("\r\n", "\n", $cert->cert_content));
+        // Fallback: Generate via CaInstallerService
+        $installerService = app(\App\Services\CaInstallerService::class);
+        $content = $installerService->generateWindowsInstaller($cert, false);
+        $filename = 'install-trustlab-' . \Illuminate\Support\Str::slug($cert->common_name) . '.bat';
 
-        $script = "@echo off\r\n";
-        $script .= "echo Installing " . $cert->common_name . "...\r\n";
-        $script .= "echo Please allow the security prompt to trust this certificate.\r\n";
-        $script .= "set \"CERT_FILE=%TEMP%\\" . $filename . ".crt\"\r\n";
-        $script .= "((\r\n";
-        foreach(explode("\r\n", $certContent) as $line) {
-            if(!empty($line)) $script .= "echo " . $line . "\r\n";
-        }
-        $script .= ")) > \"%CERT_FILE%\"\r\n";
-        $script .= "certutil -addstore -f \"" . $store . "\" \"%CERT_FILE%\"\r\n";
-        $script .= "del \"%CERT_FILE%\"\r\n";
-        $script .= "pause\r\n";
-
-        return response($script)
-            ->header('Content-Type', 'application/x-bat')
-            ->header('Content-Disposition', 'attachment; filename="install-' . $filename . '.bat"');
+        return response($content, 200, [
+            'Content-Type' => 'application/x-bat',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+        ]);
     }
 
     /**
@@ -140,66 +127,16 @@ class PublicCaController extends Controller
         if ($cert->mac_path) {
             return redirect()->away(Storage::disk('r2-public')->url($cert->mac_path));
         }
-        
-        // Extract Base64 payload
-        $pem = $cert->cert_content;
-        $lines = explode("\n", trim($pem));
-        $payload = '';
-        foreach ($lines as $line) {
-            if (!str_starts_with($line, '-----')) {
-                $payload .= trim($line);
-            }
-        }
 
-        $uuid = \Illuminate\Support\Str::uuid();
-        $identifier = 'com.trustlab.cert.' . $serial;
-        $name = $cert->common_name;
-        
-        $xml = '<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>PayloadContent</key>
-    <array>
-        <dict>
-            <key>PayloadCertificateFileName</key>
-            <string>' . $name . '.cer</string>
-            <key>PayloadContent</key>
-            <data>
-            ' . $payload . '
-            </data>
-            <key>PayloadDescription</key>
-            <string>Adds ' . $name . ' to Trusted Root Store</string>
-            <key>PayloadDisplayName</key>
-            <string>' . $name . '</string>
-            <key>PayloadIdentifier</key>
-            <string>' . $identifier . '.cert</string>
-            <key>PayloadType</key>
-            <string>com.apple.security.pkcs1</string>
-            <key>PayloadUUID</key>
-            <string>' . \Illuminate\Support\Str::uuid() . '</string>
-            <key>PayloadVersion</key>
-            <integer>1</integer>
-        </dict>
-    </array>
-    <key>PayloadDisplayName</key>
-    <string>' . $name . ' Installer</string>
-    <key>PayloadIdentifier</key>
-    <string>' . $identifier . '</string>
-    <key>PayloadRemovalDisallowed</key>
-    <false/>
-    <key>PayloadType</key>
-    <string>Configuration</string>
-    <key>PayloadUUID</key>
-    <string>' . $uuid . '</string>
-    <key>PayloadVersion</key>
-    <integer>1</integer>
-</dict>
-</plist>';
+        // Fallback: Generate via CaInstallerService
+        $installerService = app(\App\Services\CaInstallerService::class);
+        $content = $installerService->generateMacInstaller($cert);
+        $filename = 'trustlab-' . \Illuminate\Support\Str::slug($cert->common_name) . '.mobileconfig';
 
-        return response($xml)
-            ->header('Content-Type', 'application/x-apple-aspen-config')
-            ->header('Content-Disposition', 'attachment; filename="' . $name . '.mobileconfig"');
+        return response($content, 200, [
+            'Content-Type' => 'application/x-apple-aspen-config',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+        ]);
     }
 
     /**
@@ -215,12 +152,14 @@ class PublicCaController extends Controller
             return redirect()->away(Storage::disk('r2-public')->url($cert->linux_path));
         }
 
-        // Fallback or dynamic generation if needed (already in Service)
-        $sslService = app(\App\Services\OpenSslService::class);
-        $script = $sslService->generateLinuxInstaller($cert);
+        // Fallback: Generate via CaInstallerService
+        $installerService = app(\App\Services\CaInstallerService::class);
+        $content = $installerService->generateLinuxInstaller($cert, false);
+        $filename = 'install-trustlab-' . \Illuminate\Support\Str::slug($cert->common_name) . '.sh';
 
-        return response($script)
-            ->header('Content-Type', 'application/x-sh')
-            ->header('Content-Disposition', 'attachment; filename="install-' . Str::slug($cert->common_name) . '.sh"');
+        return response($content, 200, [
+            'Content-Type' => 'application/x-sh',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+        ]);
     }
 }

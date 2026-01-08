@@ -509,148 +509,6 @@ class OpenSslService
     }
 
     /**
-     * Generate Windows Installer (.bat)
-     */
-    public function generateWindowsInstaller(CaCertificate $cert, bool $isArchive = false): string
-    {
-        $slug = Str::slug($cert->common_name);
-        if ($isArchive) {
-            $cdnUrl = Storage::disk('r2-public')->url("ca/archives/{$cert->uuid}/{$slug}.crt");
-        } else {
-            $cdnUrl = Storage::disk('r2-public')->url("ca/{$slug}.crt");
-        }
-
-        $typeLabel = $cert->ca_type === 'root' ? 'Root' : 'Intermediate';
-        $store = $cert->ca_type === 'root' ? 'Root' : 'CA';
-
-        return "@echo off\n" .
-               "echo TrustLab - Installing {$typeLabel} CA Certificate: {$cert->common_name}\n" .
-               "set \"TEMP_CERT=%TEMP%\\trustlab-ca-{$cert->uuid}.crt\"\n" .
-               "echo Downloading certificate...\n" .
-               "curl -L --progress-bar \"{$cdnUrl}\" -o \"%TEMP_CERT%\"\n" .
-               "if %ERRORLEVEL% NEQ 0 (\n" .
-               "    echo Error: Failed to download certificate.\n" .
-               "    pause\n" .
-               "    exit /b 1\n" .
-               ")\n" .
-               "echo Installing to {$store} store...\n" .
-               "certutil -addstore -f \"{$store}\" \"%TEMP_CERT%\"\n" .
-               "del \"%TEMP_CERT%\"\n" .
-               "echo Installation Complete.\n" .
-               "pause";
-    }
-
-    /**
-     * Generate macOS Configuration Profile (.mobileconfig)
-     */
-    public function generateMacInstaller(CaCertificate $cert): string
-    {
-        $certBase64 = base64_encode($cert->cert_content);
-        $payloadId = "com.trustlab.ca." . Str::slug($cert->common_name);
-        $uuid1 = Str::uuid()->toString();
-        $uuid2 = Str::uuid()->toString();
-        
-        // Root CAs use 'com.apple.security.root', Intermediate CAs use 'com.apple.security.pkcs1' (intermediate)
-        $payloadType = $cert->ca_type === 'root' ? 'com.apple.security.root' : 'com.apple.security.pkcs1';
-
-        return "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" .
-               "<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n" .
-               "<plist version=\"1.0\">\n" .
-               "<dict>\n" .
-               "    <key>PayloadContent</key>\n" .
-               "    <array>\n" .
-               "        <dict>\n" .
-               "            <key>PayloadCertificateFileName</key>\n" .
-               "            <string>{$cert->common_name}.crt</string>\n" .
-               "            <key>PayloadContent</key>\n" .
-               "            <data>{$certBase64}</data>\n" .
-               "            <key>PayloadDescription</key>\n" .
-               "            <string>TrustLab CA Certificate</string>\n" .
-               "            <key>PayloadDisplayName</key>\n" .
-               "            <string>{$cert->common_name}</string>\n" .
-               "            <key>PayloadIdentifier</key>\n" .
-               "            <string>{$payloadId}.cert</string>\n" .
-               "            <key>PayloadType</key>\n" .
-               "            <string>{$payloadType}</string>\n" .
-               "            <key>PayloadUUID</key>\n" .
-               "            <string>{$uuid2}</string>\n" .
-               "            <key>PayloadVersion</key>\n" .
-               "            <integer>1</integer>\n" .
-               "        </dict>\n" .
-               "    </array>\n" .
-               "    <key>PayloadDescription</key>\n" .
-               "    <string>TrustLab CA Installation</string>\n" .
-               "    <key>PayloadDisplayName</key>\n" .
-               "    <string>TrustLab CA: {$cert->common_name}</string>\n" .
-               "    <key>PayloadIdentifier</key>\n" .
-               "    <string>{$payloadId}</string>\n" .
-               "    <key>PayloadRemovalDisallowed</key>\n" .
-               "    <false/>\n" .
-               "    <key>PayloadType</key>\n" .
-               "    <string>Configuration</string>\n" .
-               "    <key>PayloadUUID</key>\n" .
-               "    <string>{$uuid1}</string>\n" .
-               "    <key>PayloadVersion</key>\n" .
-               "    <integer>1</integer>\n" .
-               "</dict>\n" .
-               "</plist>";
-    }
-
-    /**
-     * Generate Linux Installer (.sh)
-     */
-    public function generateLinuxInstaller(CaCertificate $cert, bool $isArchive = false): string
-    {
-        $slug = Str::slug($cert->common_name);
-        if ($isArchive) {
-            $cdnUrl = Storage::disk('r2-public')->url("ca/archives/{$cert->uuid}/{$slug}.crt");
-        } else {
-            $cdnUrl = Storage::disk('r2-public')->url("ca/{$slug}.crt");
-        }
-
-        $filename = "trustlab-" . $slug . ".crt";
-
-        return "#!/bin/bash\n" .
-               "echo \"TrustLab - Installing CA Certificate: {$cert->common_name}\"\n" .
-               "if [ \"\$EUID\" -ne 0 ]; then echo \"Please run as root (sudo)\"; exit 1; fi\n" .
-               "TEMP_CERT=\"/tmp/trustlab-{$cert->uuid}.crt\"\n" .
-               "echo \"Downloading certificate...\"\n" .
-               "curl -L --progress-bar \"{$cdnUrl}\" -o \"\$TEMP_CERT\"\n" .
-               "if [ ! -f \"\$TEMP_CERT\" ]; then echo \"Failed to download cert\"; exit 1; fi\n\n" .
-                "echo \"Checking and installing ca-certificates package...\"\n" .
-                "if [ -d /etc/debian_version ]; then\n" .
-                "  apt-get update -q && apt-get install -y -q ca-certificates\n" .
-                "  mkdir -p /usr/local/share/ca-certificates\n" .
-                "elif [ -f /etc/redhat-release ]; then\n" .
-                "  yum install -y -q ca-certificates || dnf install -y -q ca-certificates\n" .
-                "  mkdir -p /etc/pki/ca-trust/source/anchors\n" .
-                "elif [ -f /etc/arch-release ]; then\n" .
-                "  pacman -Sy --noconfirm -q ca-certificates\n" .
-                "  mkdir -p /etc/ca-certificates/trust-source/anchors\n" .
-                "fi\n\n" .
-                "# Detection based on directories\n" .
-                "if [ -d /usr/local/share/ca-certificates ]; then\n" .
-                "  cp \"\$TEMP_CERT\" \"/usr/local/share/ca-certificates/{$filename}\"\n" .
-                "  update-ca-certificates\n" .
-                "# RHEL/CentOS/Fedora\n" .
-                "elif [ -d /etc/pki/ca-trust/source/anchors ]; then\n" .
-                "  cp \"\$TEMP_CERT\" \"/etc/pki/ca-trust/source/anchors/{$filename}\"\n" .
-                "  update-ca-trust extract\n" .
-                "# Arch Linux\n" .
-                "elif [ -d /etc/ca-certificates/trust-source/anchors ]; then\n" .
-                "  cp \"\$TEMP_CERT\" \"/etc/ca-certificates/trust-source/anchors/{$filename}\"\n" .
-                "  trust extract-compat\n" .
-                "else\n" .
-                "  echo \"Unsupported Linux distribution for automatic install after package check.\"\n" .
-                "  echo \"Please manually install \$TEMP_CERT\"\n" .
-                "  exit 1\n" .
-                "fi\n" .
-               "rm \"\$TEMP_CERT\"\n" .
-               "echo \"Installation Complete.\"\n" .
-               "echo \"To verify, you can check: ls /usr/local/share/ca-certificates/trustlab-*\"\n";
-    }
-
-    /**
      * Upload only PEM/DER (The CRT files) to CDN.
      */
     public function uploadPublicCertsOnly(CaCertificate $cert, string $mode = 'both')
@@ -704,226 +562,20 @@ class OpenSslService
     }
 
     /**
-     * Upload individual installers (SH, BAT, MAC) to CDN.
-     */
-    public function uploadIndividualInstallersOnly(CaCertificate $cert, string $mode = 'both')
-    {
-        $slug = Str::slug($cert->common_name);
-        $cacheControl = 'no-cache, no-store, must-revalidate';
-        
-        $syncs = [];
-        if ($mode === 'archive' || $mode === 'both') {
-            $syncs[] = ['base' => "ca/archives/{$cert->uuid}/installers/trustlab-{$slug}", 'isArchive' => true];
-        }
-        if ($mode === 'latest' || $mode === 'both') {
-            $syncs[] = ['base' => "ca/installers/trustlab-{$slug}", 'isArchive' => false];
-        }
-
-        foreach ($syncs as $sync) {
-            $batPath = $sync['base'] . '.bat';
-            $macPath = $sync['base'] . '.mobileconfig';
-            $linuxPath = $sync['base'] . '.sh';
-
-            // 3. Generate and Upload Windows Installer (.bat)
-            $batContent = $this->generateWindowsInstaller($cert, $sync['isArchive']);
-            Storage::disk('r2-public')->put($batPath, $batContent, [
-                'visibility' => 'public',
-                'ContentType' => 'text/plain',
-                'CacheControl' => $cacheControl
-            ]);
-
-            // 4. Generate and Upload macOS Profile (.mobileconfig)
-            $macContent = $this->generateMacInstaller($cert); // macOS profiles are self-contained
-            Storage::disk('r2-public')->put($macPath, $macContent, [
-                'visibility' => 'public',
-                'ContentType' => 'application/x-apple-aspen-config',
-                'CacheControl' => $cacheControl
-            ]);
-
-            // 5. Generate and Upload Linux Script (.sh)
-            $linuxContent = $this->generateLinuxInstaller($cert, $sync['isArchive']);
-            Storage::disk('r2-public')->put($linuxPath, $linuxContent, [
-                'visibility' => 'public',
-                'ContentType' => 'text/plain',
-                'CacheControl' => $cacheControl
-            ]);
-        }
-
-        $cert->update([
-            'bat_path' => "ca/installers/trustlab-{$slug}.bat",
-            'mac_path' => "ca/installers/trustlab-{$slug}.mobileconfig",
-            'linux_path' => "ca/installers/trustlab-{$slug}.sh",
-            'last_synced_at' => now()
-        ]);
-
-        return true;
-    }
-
-    /**
      * Promote an archived certificate version to 'Latest' (public root)
      */
     public function promoteToLatest(CaCertificate $cert)
     {
         // Simply re-sync this specific certificate version as 'latest'
         $this->uploadPublicCertsOnly($cert, 'latest');
-        $this->uploadIndividualInstallersOnly($cert, 'latest');
+        
+        // Delegate installer uploads to CaInstallerService
+        $installerService = app(\App\Services\CaInstallerService::class);
+        $installerService->uploadIndividualInstallersOnly($cert, 'latest');
         
         // Also sync all bundles to ensure global installers are updated with this promoted version
-        $this->syncAllBundles();
+        $installerService->syncAllBundles();
         
-        return true;
-    }
-
-    /**
-     * Generate Global Bundles (Installer Sapujagat)
-     */
-    public function syncAllBundles()
-    {
-        $certificates = CaCertificate::all();
-        if ($certificates->isEmpty()) return false;
-
-        $cacheControl = 'no-cache, no-store, must-revalidate';
-
-        // 1. Linux Bundle (.sh)
-        $now = now()->format('Y-m-d H:i:s');
-        $shContent = "#!/bin/bash\n" .
-                     "# Generated at: {$now}\n" .
-                     "echo \"TrustLab - Installing all CA Certificates...\"\n" .
-                     "if [ \"\$EUID\" -ne 0 ]; then echo \"Please run as root (sudo)\"; exit 1; fi\n\n" .
-                     "echo \"Checking and installing ca-certificates package... (Please wait)\"\n" .
-                     "if [ -d /etc/debian_version ]; then\n" .
-                     "  apt-get update -q && apt-get install -y -q ca-certificates\n" .
-                     "  mkdir -p /usr/local/share/ca-certificates\n" .
-                     "elif [ -f /etc/redhat-release ]; then\n" .
-                     "  yum install -y -q ca-certificates || dnf install -y -q ca-certificates\n" .
-                     "  mkdir -p /etc/pki/ca-trust/source/anchors\n" .
-                     "elif [ -f /etc/arch-release ]; then\n" .
-                     "  pacman -Sy --noconfirm -q ca-certificates\n" .
-                     "  mkdir -p /etc/ca-certificates/trust-source/anchors\n" .
-                     "fi\n\n" .
-                     "# OS Detection after package check\n" .
-                     "TARGET_DIR=\"\"\n" .
-                     "UPDATE_CMD=\"\"\n\n" .
-                     "if [ -d /usr/local/share/ca-certificates ]; then\n" .
-                     "  TARGET_DIR=\"/usr/local/share/ca-certificates\"\n" .
-                     "  UPDATE_CMD=\"update-ca-certificates\"\n" .
-                     "elif [ -d /etc/pki/ca-trust/source/anchors ]; then\n" .
-                     "  TARGET_DIR=\"/etc/pki/ca-trust/source/anchors\"\n" .
-                     "  UPDATE_CMD=\"update-ca-trust extract\"\n" .
-                     "elif [ -d /etc/ca-certificates/trust-source/anchors ]; then\n" .
-                     "  TARGET_DIR=\"/etc/ca-certificates/trust-source/anchors\"\n" .
-                     "  UPDATE_CMD=\"trust extract-compat\"\n" .
-                     "else\n" .
-                     "  echo \"Unsupported Linux distribution after package check.\"\n" .
-                     "  exit 1\n" .
-                     "fi\n\n" .
-                     "echo \"Cleaning up old TrustLab certificates...\"\n" .
-                     "rm -f \"\$TARGET_DIR/trustlab-*.crt\"\n\n";
-        
-        foreach ($certificates as $cert) {
-            $cdnUrl = $cert->cert_path ? Storage::disk('r2-public')->url($cert->cert_path) : null;
-            if (!$cdnUrl) continue;
-            
-            $filename = "trustlab-" . Str::slug($cert->common_name) . ".crt";
-            $shContent .= "echo \"Downloading and deploying {$cert->common_name}...\"\n" .
-                          "curl -L --progress-bar \"{$cdnUrl}\" -o \"\$TARGET_DIR/{$filename}\"\n";
-        }
-        
-        $shContent .= "\necho \"Finalizing installation with: \$UPDATE_CMD\"\n" .
-                      "\$UPDATE_CMD\n" .
-                      "echo \"All certificates installed successfully.\"\n" .
-                      "echo \"To verify, you can check: ls \$TARGET_DIR/trustlab-*\"\n";
-
-        Storage::disk('r2-public')->delete('ca/bundles/trustlab-all.sh');
-        Storage::disk('r2-public')->put('ca/bundles/trustlab-all.sh', $shContent, [
-            'visibility' => 'public',
-            'ContentType' => 'text/plain',
-            'CacheControl' => $cacheControl
-        ]);
-
-        // 2. Windows Bundle (.bat)
-        $batContent = "@echo off\n" .
-                      "rem Generated at: {$now}\n" .
-                      "echo TrustLab - Installing all CA Certificates...\n";
-        
-        foreach ($certificates as $cert) {
-            $cdnUrl = $cert->cert_path ? Storage::disk('r2-public')->url($cert->cert_path) : null;
-            if (!$cdnUrl) continue;
-            
-            $store = $cert->ca_type === 'root' ? 'Root' : 'CA';
-            $batContent .= "echo Installing {$cert->common_name} to {$store} store...\n" .
-                           "curl -L --progress-bar \"{$cdnUrl}\" -o \"%TEMP%\\trustlab-{$cert->uuid}.crt\"\n" .
-                           "certutil -addstore -f \"{$store}\" \"%TEMP%\\trustlab-{$cert->uuid}.crt\"\n" .
-                           "del \"%TEMP%\\trustlab-{$cert->uuid}.crt\"\n";
-        }
-        $batContent .= "echo Installation Complete.\npause";
-
-        Storage::disk('r2-public')->delete('ca/bundles/trustlab-all.bat');
-        Storage::disk('r2-public')->put('ca/bundles/trustlab-all.bat', $batContent, [
-            'visibility' => 'public',
-            'ContentType' => 'text/plain',
-            'CacheControl' => $cacheControl
-        ]);
-
-        // 3. macOS Bundle (.mobileconfig)
-        $uuid1 = Str::uuid()->toString();
-        $payloadContent = "";
-        
-        foreach ($certificates as $cert) {
-            $certBase64 = base64_encode($cert->cert_content);
-            $uuidSub = Str::uuid()->toString();
-            $payloadType = $cert->ca_type === 'root' ? 'com.apple.security.root' : 'com.apple.security.pkcs1';
-            
-            $payloadContent .= "        <dict>\n" .
-                               "            <key>PayloadCertificateFileName</key>\n" .
-                               "            <string>{$cert->common_name}.crt</string>\n" .
-                               "            <key>PayloadContent</key>\n" .
-                               "            <data>{$certBase64}</data>\n" .
-                               "            <key>PayloadDescription</key>\n" .
-                               "            <string>TrustLab CA Certificate</string>\n" .
-                               "            <key>PayloadDisplayName</key>\n" .
-                               "            <string>{$cert->common_name}</string>\n" .
-                               "            <key>PayloadIdentifier</key>\n" .
-                               "            <string>com.trustlab.bundle.{$cert->uuid}</string>\n" .
-                               "            <key>PayloadType</key>\n" .
-                               "            <string>{$payloadType}</string>\n" .
-                               "            <key>PayloadUUID</key>\n" .
-                               "            <string>{$uuidSub}</string>\n" .
-                               "            <key>PayloadVersion</key>\n" .
-                               "            <integer>1</integer>\n" .
-                               "        </dict>\n";
-        }
-
-        $macContent = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" .
-                      "<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n" .
-                      "<plist version=\"1.0\">\n" .
-                      "<dict>\n" .
-                      "    <key>PayloadContent</key>\n" .
-                      "    <array>\n" . $payloadContent . "    </array>\n" .
-                      "    <key>PayloadDescription</key>\n" .
-                      "    <string>TrustLab All-in-One CA Bundle</string>\n" .
-                      "    <key>PayloadDisplayName</key>\n" .
-                      "    <string>TrustLab CA Bundle</string>\n" .
-                      "    <key>PayloadIdentifier</key>\n" .
-                      "    <string>com.trustlab.ca.bundle</string>\n" .
-                      "    <key>PayloadRemovalDisallowed</key>\n" .
-                      "    <false/>\n" .
-                      "    <key>PayloadType</key>\n" .
-                      "    <string>Configuration</string>\n" .
-                      "    <key>PayloadUUID</key>\n" .
-                      "    <string>{$uuid1}</string>\n" .
-                      "    <key>PayloadVersion</key>\n" .
-                      "    <integer>1</integer>\n" .
-                      "</dict>\n" .
-                      "</plist>";
-
-        Storage::disk('r2-public')->delete('ca/bundles/trustlab-all.mobileconfig');
-        Storage::disk('r2-public')->put('ca/bundles/trustlab-all.mobileconfig', $macContent, [
-            'visibility' => 'public',
-            'ContentType' => 'application/x-apple-aspen-config',
-            'CacheControl' => $cacheControl
-        ]);
-
         return true;
     }
 
@@ -934,14 +586,19 @@ class OpenSslService
     {
         try {
             $this->uploadPublicCertsOnly($cert);
-            $this->uploadIndividualInstallersOnly($cert);
-            $this->syncAllBundles();
+            
+            // Delegate installer logic
+            $installerService = app(\App\Services\CaInstallerService::class);
+            $installerService->uploadIndividualInstallersOnly($cert);
+            $installerService->syncAllBundles();
+            
             return true;
         } catch (\Exception $e) {
             \Log::error("Failed to upload CA to R2: " . $e->getMessage());
             return false;
         }
     }
+    
     /**
      * Purge everything under the 'ca/' directory on the CDN.
      */
