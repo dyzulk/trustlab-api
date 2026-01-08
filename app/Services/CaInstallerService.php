@@ -179,17 +179,17 @@ class CaInstallerService
                "\n" .
                "msg_info \"Detecting OS and checking ca-certificates package...\"\n" .
                "if [ -f /etc/debian_version ]; then\n" .
-               "    apt-get update -qq >/dev/null 2>&1 && apt-get install -y -qq ca-certificates >/dev/null 2>&1\n" .
+               "    apt-get update -qq >/dev/null 2>&1 && apt-get install -y -qq ca-certificates curl >/dev/null 2>&1\n" .
                "    mkdir -p /usr/local/share/ca-certificates\n" .
                "    TARGET_DIR=\"/usr/local/share/ca-certificates\"\n" .
                "    UPDATE_CMD=\"update-ca-certificates\"\n" .
                "elif [ -f /etc/redhat-release ]; then\n" .
-               "    yum install -y -q ca-certificates >/dev/null 2>&1 || dnf install -y -q ca-certificates >/dev/null 2>&1\n" .
+               "    yum install -y -q ca-certificates curl >/dev/null 2>&1 || dnf install -y -q ca-certificates curl >/dev/null 2>&1\n" .
                "    mkdir -p /etc/pki/ca-trust/source/anchors\n" .
                "    TARGET_DIR=\"/etc/pki/ca-trust/source/anchors\"\n" .
                "    UPDATE_CMD=\"update-ca-trust extract\"\n" .
                "elif [ -f /etc/arch-release ]; then\n" .
-               "    pacman -Sy --noconfirm -q ca-certificates >/dev/null 2>&1\n" .
+               "    pacman -Sy --noconfirm -q ca-certificates curl >/dev/null 2>&1\n" .
                "    mkdir -p /etc/ca-certificates/trust-source/anchors\n" .
                "    TARGET_DIR=\"/etc/ca-certificates/trust-source/anchors\"\n" .
                "    UPDATE_CMD=\"trust extract-compat\"\n" .
@@ -353,17 +353,17 @@ class CaInstallerService
                      "\n" .
                      "msg_info \"Detecting OS and checking ca-certificates package...\"\n" .
                      "if [ -f /etc/debian_version ]; then\n" .
-                     "    apt-get update -qq >/dev/null 2>&1 && apt-get install -y -qq ca-certificates >/dev/null 2>&1\n" .
+                     "    apt-get update -qq >/dev/null 2>&1 && apt-get install -y -qq ca-certificates curl >/dev/null 2>&1\n" .
                      "    mkdir -p /usr/local/share/ca-certificates\n" .
                      "    TARGET_DIR=\"/usr/local/share/ca-certificates\"\n" .
                      "    UPDATE_CMD=\"update-ca-certificates\"\n" .
                      "elif [ -f /etc/redhat-release ]; then\n" .
-                     "    yum install -y -q ca-certificates >/dev/null 2>&1 || dnf install -y -q ca-certificates >/dev/null 2>&1\n" .
+                     "    yum install -y -q ca-certificates curl >/dev/null 2>&1 || dnf install -y -q ca-certificates curl >/dev/null 2>&1\n" .
                      "    mkdir -p /etc/pki/ca-trust/source/anchors\n" .
                      "    TARGET_DIR=\"/etc/pki/ca-trust/source/anchors\"\n" .
                      "    UPDATE_CMD=\"update-ca-trust extract\"\n" .
                      "elif [ -f /etc/arch-release ]; then\n" .
-                     "    pacman -Sy --noconfirm -q ca-certificates >/dev/null 2>&1\n" .
+                     "    pacman -Sy --noconfirm -q ca-certificates curl >/dev/null 2>&1\n" .
                      "    mkdir -p /etc/ca-certificates/trust-source/anchors\n" .
                      "    TARGET_DIR=\"/etc/ca-certificates/trust-source/anchors\"\n" .
                      "    UPDATE_CMD=\"trust extract-compat\"\n" .
