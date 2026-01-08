@@ -19,7 +19,7 @@ return [
 
     'allowed_methods' => ['*'],
 
-    'allowed_origins' => explode(',', env('ALLOWED_ORIGINS', 'https://trustlab.dyzulk.com,https://api.trustlab.dyzulk.com,docs.trustlab.dyzulk.com,https://trustlab.pages.dev')),
+    'allowed_origins' => explode(',', env('ALLOWED_ORIGINS', 'https://trustlab.dyzulk.com,https://api.trustlab.dyzulk.com,https://docs.trustlab.dyzulk.com,https://trustlab.pages.dev')),
 
     'allowed_origins_patterns' => [
         '#^https?://.*\.trustlab\.pages\.dev$#',
