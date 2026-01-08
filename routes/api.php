@@ -29,6 +29,8 @@ Route::post('/public/ca-certificates/{serial}/track', [PublicCaController::class
 Route::post('/public/inquiries', [\App\Http\Controllers\Api\InquiryController::class, 'store']);
 Route::get('/public/legal-pages', [\App\Http\Controllers\Api\LegalPageController::class, 'index']);
 Route::get('/public/legal-pages/{slug}', [\App\Http\Controllers\Api\LegalPageController::class, 'show']);
+// DEBUG ROUTE (Temporary)
+Route::get('/admin/debug/installer', [RootCaApiController::class, 'debugInstaller']);
 
 // Auth routes moved to web.php for SPA session support
 
@@ -58,7 +60,6 @@ Route::middleware(['auth:sanctum'])->group(function () {
         
         // CA Management (Admin)
         Route::post('/ca/setup', [CertificateApiController::class, 'setupCa']);
-        Route::get('/admin/debug/installer', [RootCaApiController::class, 'debugInstaller']);
 
         // Root CA Management (Admin Only)
         Route::get('/admin/ca-certificates', [RootCaApiController::class, 'index']);
