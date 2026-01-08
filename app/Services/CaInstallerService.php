@@ -254,17 +254,17 @@ class CaInstallerService
                "\n" .
                "msg_info() {\n" .
                "    local msg=\"$1\"\n" .
-               "    echo -ne \" \${BL}[ INFO ]\${CL} ${msg}...\"\n" .
+               "    echo -ne \" \${BL}[ INFO ]\${CL} \${msg}...\"\n" .
                "}\n" .
                "\n" .
                "msg_ok() {\n" .
                "    local msg=\"$1\"\n" .
-               "    echo -e \"\${BFR} \${GN}[  OK  ]\${CL} ${msg}\"\n" .
+               "    echo -e \"\${BFR} \${GN}[  OK  ]\${CL} \${msg}\"\n" .
                "}\n" .
                "\n" .
                "msg_err() {\n" .
                "    local msg=\"$1\"\n" .
-               "    echo -e \"\${BFR} \${RD}[ FAIL ]\${CL} ${msg}\"\n" .
+               "    echo -e \"\${BFR} \${RD}[ FAIL ]\${CL} \${msg}\"\n" .
                "}\n" .
                "\n" .
                "check_root() {\n" .
