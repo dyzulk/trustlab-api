@@ -453,6 +453,12 @@ class OpenSslService
 
         // 1. Get current latest Root
         $root = CaCertificate::where('ca_type', 'root')->where('is_latest', true)->first();
+        
+        // Fallback: If no 'is_latest' found (inconsistent state), take the most recent one
+        if (!$root) {
+            $root = CaCertificate::where('ca_type', 'root')->latest()->first();
+        }
+
         if (!$root) throw new \Exception("Current Root CA not found.");
 
         // 2. Renew Root
@@ -469,8 +475,12 @@ class OpenSslService
 
         // 4. Final Mass Sync
         // 4. Final Mass Sync
-        $installerService = app(\App\Services\CaInstallerService::class);
-        $installerService->syncAllBundles();
+        try {
+            $installerService = app(\App\Services\CaInstallerService::class);
+            $installerService->syncAllBundles();
+        } catch (\Exception $e) {
+            \Log::error("Failed to sync bundles after bulk renew: " . $e->getMessage());
+        }
         
         return true;
     }
@@ -505,8 +515,16 @@ class OpenSslService
 
         // Sync to CDN
         $this->uploadPublicCertsOnly($newCert, 'both');
-        $installerService = app(\App\Services\CaInstallerService::class);
-        $installerService->uploadIndividualInstallersOnly($newCert, 'both');
+        // Sync to CDN
+        $this->uploadPublicCertsOnly($newCert, 'both');
+
+        try {
+            $installerService = app(\App\Services\CaInstallerService::class);
+            $installerService->uploadIndividualInstallersOnly($newCert, 'both');
+        } catch (\Exception $e) {
+            \Log::error("Failed to generate installers for renewed cert: " . $e->getMessage());
+            // We do not re-throw, so the renewal itself is considered successful
+        }
 
         return $newCert;
     }
