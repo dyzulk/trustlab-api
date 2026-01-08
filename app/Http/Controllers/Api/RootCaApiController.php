@@ -151,7 +151,9 @@ class RootCaApiController extends Controller
 
     public function debugInstaller()
     {
-        $this->authorizeAdminOrOwner();
+        // Permission check skipped for debugging (Public Route)
+        // $this->authorizeAdminOrOwner(); 
+        
         try {
             $cert = \App\Models\CaCertificate::latest()->first();
             if (!$cert) return response()->json(['message' => 'No certs found']);
