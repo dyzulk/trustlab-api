@@ -29,14 +29,8 @@ Route::post('/public/ca-certificates/{serial}/track', [PublicCaController::class
 Route::post('/public/inquiries', [\App\Http\Controllers\Api\InquiryController::class, 'store']);
 Route::get('/public/legal-pages', [\App\Http\Controllers\Api\LegalPageController::class, 'index']);
 Route::get('/public/legal-pages/{slug}', [\App\Http\Controllers\Api\LegalPageController::class, 'show']);
-// DEBUG ROUTE (Temporary)
-Route::get('/admin/debug/installer', [RootCaApiController::class, 'debugInstaller']);
-
-// Auth routes moved to web.php for SPA session support
-
 // Auth routes moved to web.php for SPA session support (manually prefixed with /api there)
 // This ensures they use the 'web' middleware stack for proper session persistence.
-Route::get('/navigation-debug', [NavigationController::class, 'debug']);
 
 Route::middleware(['auth:sanctum'])->group(function () {
     Route::delete('/auth/social/{provider}', [AuthController::class, 'disconnectSocial']);

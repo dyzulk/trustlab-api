@@ -149,41 +149,6 @@ class RootCaApiController extends Controller
         }
     }
 
-    public function debugInstaller()
-    {
-        // Permission check skipped for debugging (Public Route)
-        // $this->authorizeAdminOrOwner(); 
-        
-        try {
-            $cert = \App\Models\CaCertificate::latest()->first();
-            if (!$cert) return response()->json(['message' => 'No certs found']);
-
-            $installerService = app(\App\Services\CaInstallerService::class);
-            
-            // Test Windows Generation
-            $winContent = $installerService->generateWindowsInstaller($cert);
-            
-            // Test Linux Generation
-            $linuxContent = $installerService->generateLinuxInstaller($cert);
-
-            return response()->json([
-                'status' => 'success',
-                'message' => 'Installer generation test passed',
-                'data' => [
-                     'windows_length' => strlen($winContent),
-                     'linux_length' => strlen($linuxContent)
-                ]
-            ]);
-        } catch (\Throwable $e) {
-            return response()->json([
-                'status' => 'error',
-                'message' => $e->getMessage(),
-                'file' => $e->getFile(),
-                'line' => $e->getLine(),
-                'trace' => $e->getTraceAsString()
-            ], 500);
-        }
-    }
 
     public function promote(CaCertificate $certificate)
     {
